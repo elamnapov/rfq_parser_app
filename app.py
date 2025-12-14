@@ -10,7 +10,6 @@ import sys
 import time
 from datetime import datetime
 
-sys.path.insert(0, r'C:\Users\maelp\02_ai_projects\08_rfq_parser\src\rfq_parser.py')
 from rfq_parser import RFQParser, Direction, AssetClass, Urgency
 
 # Page configuration
