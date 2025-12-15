@@ -4,46 +4,73 @@
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
+[![Tests](https://img.shields.io/badge/tests-147%20passed-brightgreen.svg)](#-testing)
 
 ## 🚀 Quick Start
 
 ```bash
+# Clone the repository
+git clone https://github.com/YOUR_USERNAME/rfq_parser_app.git
+cd rfq_parser_app
+
 # Install dependencies
 pip install -r requirements.txt
 
 # Run tests
-pytest tests/ -v
+pytest rfq_parser_tests.py app_tests.py -v
 
 # Launch demo
-streamlit run demo/app.py
+streamlit run app.py
 ```
+
+**No API key required!** The parser works out-of-the-box with regex mode.
 
 ## 💡 Features
 
 - **LLM-Powered Parsing**: Uses Mistral Large for semantic understanding
 - **Regex Fallback**: Works without API key for common patterns
-- **Multi-Asset Support**: FX, Rates, Credit, Equities
+- **Multi-Asset Support**: FX Spot, FX Forward, Bonds, IRS, CDS, Equities
 - **Confidence Scoring**: Know how reliable the parse is
 - **Batch Processing**: Parse multiple RFQs at once
 - **Visual Demo**: Interactive Streamlit interface
+- **Mock Client**: Test without API calls using `MockMistralClient`
 
 ## 📖 Usage
 
-### Basic Parsing
+### Basic Parsing (No API Key Needed)
 
 ```python
 from rfq_parser import RFQParser, parse_rfq
 
-# Quick parse (uses regex fallback if no API key)
+# Quick parse (uses regex - no API key required)
 result = parse_rfq("Buy 10MM EUR/USD spot")
-print(result.direction)     # Direction.BUY
-print(result.quantity)      # 10000000.0
-print(result.currency_pair) # EUR/USD
+print(result.direction)      # Direction.BUY
+print(result.quantity)       # 10000000.0
+print(result.currency_pair)  # EUR/USD
+print(result.confidence_score)  # 1.0
+```
 
-# With Mistral LLM
-parser = RFQParser(api_key="your-mistral-key")
+### With Mistral LLM
+
+```python
+from rfq_parser import RFQParser
+
+# With Mistral LLM (requires API key)
+parser = RFQParser(api_key="your-mistral-key", use_llm=True)
 result = parser.parse("Need two-way on 50 MIO GBPUSD 3M forward, ASAP!")
 print(result.to_json())
+```
+
+### Using Mock Client (For Testing)
+
+```python
+from rfq_parser import RFQParser, MockMistralClient
+
+# Use mock client - no API calls, deterministic responses
+mock = MockMistralClient()
+parser = RFQParser(client=mock, use_llm=True)
+result = parser.parse("Sell 25MM USDJPY")
+print(result.direction)  # Direction.SELL
 ```
 
 ### Output Structure
@@ -51,6 +78,7 @@ print(result.to_json())
 ```json
 {
   "raw_text": "Buy 10MM EUR/USD spot",
+  "rfq_id": "550e8400-e29b-41d4-a716-446655440000",
   "direction": "BUY",
   "asset_class": "FX_SPOT",
   "instrument": "EURUSD",
@@ -58,53 +86,75 @@ print(result.to_json())
   "quantity_unit": "MM",
   "currency_pair": "EUR/USD",
   "urgency": "NORMAL",
-  "confidence_score": 0.85
+  "urgency_level": "NORMAL",
+  "confidence_score": 1.0,
+  "parsing_notes": ["Parsed using regex fallback (no LLM)"]
 }
 ```
 
 ### Batch Processing
 
 ```python
-parser = RFQParser()
+parser = RFQParser(use_llm=False)
 rfqs = [
     "Buy 10MM EURUSD",
     "Sell 5MM GBPUSD",
     "Two-way on USDJPY 3M"
 ]
 results = parser.parse_batch(rfqs)
+for r in results:
+    print(f"{r.direction.value}: {r.currency_pair}")
 ```
 
 ## 🧪 Testing
 
 ```bash
-# Run all tests
-pytest tests/ -v
+# Run all tests (147 tests)
+pytest rfq_parser_tests.py app_tests.py -v
+
+# Run parser tests only (107 tests)
+pytest rfq_parser_tests.py -v
+
+# Run app tests only (40 tests)
+pytest app_tests.py -v
 
 # With coverage report
-pytest tests/ --cov=src --cov-report=html
+pytest rfq_parser_tests.py app_tests.py --cov=. --cov-report=html
 
-# Run specific tests
-pytest tests/ -k "direction" -v
+# Run specific test category
+pytest rfq_parser_tests.py -k "direction" -v
 ```
+
+### Test Coverage
+
+| Test File | Tests | Coverage |
+|-----------|-------|----------|
+| `rfq_parser_tests.py` | 107 | Parser, models, enums, mock client |
+| `app_tests.py` | 40 | Streamlit app, utilities, formatting |
+| **Total** | **147** | All components |
 
 ## 🎨 Demo
 
-Launch the interactive demo:
+Launch the interactive Streamlit demo:
 
 ```bash
-# Set API key (optional)
+# Set API key (optional - regex works without it)
 export MISTRAL_API_KEY="your-key"
 
 # Run Streamlit app
-streamlit run demo/app.py
+streamlit run app.py
 ```
 
-Demo features:
-- Single RFQ parsing with visual output
-- Pre-loaded sample RFQs
-- Batch processing mode
-- JSON export
-- Architecture diagram
+### Demo Features
+
+| Feature | Description |
+|---------|-------------|
+| **Single Parse** | Parse one RFQ with visual output |
+| **Sample RFQs** | Pre-loaded examples for testing |
+| **Visual Metrics** | Color-coded direction, confidence |
+| **JSON Export** | View structured output |
+| **Batch Mode** | Parse multiple RFQs in table view |
+| **Architecture View** | System diagram in expandable panel |
 
 ## 📊 Supported Fields
 
@@ -120,28 +170,67 @@ Demo features:
 | `settlement_date` | Value date | `"2024-03-15"` |
 | `strike` | Option strike | `1.0850` |
 | `urgency` | IMMEDIATE, NORMAL, EOD | `Urgency.IMMEDIATE` |
+| `urgency_level` | CRITICAL, URGENT, HIGH, NORMAL, LOW | `UrgencyLevel.URGENT` |
 | `confidence_score` | Parse reliability (0-1) | `0.95` |
+
+## 🔧 Available Classes
+
+```python
+from rfq_parser import (
+    # Core
+    RFQParser,              # Main parser class
+    ParsedRFQ,              # Parsed result
+    parse_rfq,              # Quick parse function
+    
+    # Data classes
+    LineItem,               # Multi-item RFQ support
+    ContactInfo,            # Sender/recipient info
+    CompanyInfo,            # Counterparty info
+    ParserConfig,           # Parser configuration
+    
+    # Enums
+    Direction,              # BUY, SELL, TWO_WAY
+    AssetClass,             # FX_SPOT, BOND, etc.
+    Urgency,                # IMMEDIATE, NORMAL, EOD
+    UrgencyLevel,           # CRITICAL, URGENT, HIGH, NORMAL, LOW
+    
+    # Testing
+    MockMistralClient,      # Mock for testing without API
+)
+```
 
 ## 🗺️ Roadmap
 
-See [docs/ROADMAP.md](docs/ROADMAP.md) for the full development plan.
+See [ROADMAP.md](ROADMAP.md) for the full development plan.
 
-**Current Phase:** Core Parser + Visual Demo ✅  
-**Next Phase:** FastAPI Service
+| Phase | Status | Description |
+|-------|--------|-------------|
+| Phase 1: Core Parser | ✅ Complete | Parser, models, regex fallback |
+| Phase 2: Visual Demo | ✅ Complete | Streamlit app, batch processing |
+| Phase 3: API Service | 📋 Planned | FastAPI, Docker |
+| Phase 4: Advanced Features | 📋 Planned | Voice-to-RFQ, multi-asset |
+| Phase 5: Enterprise | 📋 Planned | Monitoring, audit, multi-tenant |
 
 ## 📁 Project Structure
 
 ```
-rfq_parser/
-├── src/
-│   └── rfq_parser.py      # Core parser
-├── tests/
-│   └── test_rfq_parser.py # Test suite
-├── demo/
-│   └── app.py             # Streamlit demo
-├── docs/
-│   └── ROADMAP.md         # Development roadmap
-└── requirements.txt       # Dependencies
+rfq_parser_app/
+├── rfq_parser.py           # Core parser module
+├── rfq_parser_tests.py     # Parser test suite (107 tests)
+├── app.py                  # Streamlit demo application
+├── app_tests.py            # App test suite (40 tests)
+├── README.md               # This file
+├── ROADMAP.md              # Development roadmap
+├── requirements.txt        # Dependencies
+└── screenshots/            # Demo screenshots
+```
+
+## 📦 Dependencies
+
+```txt
+mistralai>=1.0.0      # LLM integration (optional)
+pytest>=7.0.0         # Testing
+streamlit>=1.28.0     # Demo UI
 ```
 
 ## 🔧 Configuration
@@ -149,6 +238,15 @@ rfq_parser/
 | Environment Variable | Description | Default |
 |---------------------|-------------|---------|
 | `MISTRAL_API_KEY` | Mistral API key | None (uses regex) |
+
+## 🤝 Contributing
+
+1. Fork the repo
+2. Create a feature branch (`git checkout -b feature/amazing`)
+3. Run tests (`pytest rfq_parser_tests.py app_tests.py -v`)
+4. Commit changes (`git commit -m 'Add amazing feature'`)
+5. Push (`git push origin feature/amazing`)
+6. Open a Pull Request
 
 ## 📄 License
 
