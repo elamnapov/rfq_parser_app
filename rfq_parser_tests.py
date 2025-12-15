@@ -1,7 +1,7 @@
 """
 Test Suite for RFQ Parser
 =========================
-Run: pytest test_parser.py -v
+Run: pytest rfq_parser_tests.py -v
 """
 
 import pytest

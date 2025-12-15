@@ -1,7 +1,7 @@
 """
 Test Suite for RFQ Parser Streamlit App
 =======================================
-Run: pytest test_app.py -v
+Run: pytest app_tests.py -v
 
 Note: These tests cover the utility functions and app logic.
 For full Streamlit app testing, use: streamlit run app.py
