@@ -34,6 +34,7 @@ streamlit run app.py
 - **Batch Processing**: Parse multiple RFQs at once
 - **Visual Demo**: Interactive Streamlit interface
 - **Mock Client**: Test without API calls using `MockMistralClient`
+- **🚀 C++ Extensions**: High-performance validation and derivatives pricing (see [cpp/README.md](cpp/README.md))
 
 ## 📖 Usage
 
@@ -106,8 +107,60 @@ for r in results:
     print(f"{r.direction.value}: {r.currency_pair}")
 ```
 
+### 🚀 C++ Components (Advanced)
+
+High-performance C++ extensions for interest rate derivatives:
+
+```python
+import rfq_cpp
+from rfq_parser import CPP_AVAILABLE
+
+# Check if C++ module is available
+print(f"C++ extensions: {CPP_AVAILABLE}")
+
+# Create interest rate swap
+pay_leg = (rfq_cpp.SwapLeg.builder()
+           .with_currency("USD")
+           .with_notional(10_000_000)
+           .with_fixed_rate(0.05)
+           .with_day_count(rfq_cpp.DayCountConvention.ACT_360)
+           .build())
+
+receive_leg = (rfq_cpp.SwapLeg.builder()
+               .with_currency("USD")
+               .with_notional(10_000_000)
+               .with_floating_index(rfq_cpp.FloatingIndex.SOFR)
+               .build())
+
+swap = rfq_cpp.InterestRateSwap.create_vanilla_swap(
+    pay_leg, receive_leg, "5Y", "2024-01-15"
+)
+
+# Create Bermudan swaption
+exercise_dates = ["2025-01-01", "2026-01-01", "2027-01-01"]
+swaption = rfq_cpp.Swaption.create_bermudan(
+    rfq_cpp.SwaptionType.PAYER,
+    swap,
+    "2027-12-31",
+    0.05,
+    exercise_dates
+)
+
+# Validate RFQ data
+validator = rfq_cpp.SwapValidator()
+results = validator.validate({
+    "direction": "PAY",
+    "currency": "USD",
+    "notional": "10000000",
+    "tenor": "5Y"
+})
+```
+
+**See [cpp/README.md](cpp/README.md) and [example_cpp_usage.py](example_cpp_usage.py) for complete examples.**
+
 ## 🧪 Testing
 
+### Python Tests
 ```bash
 # Run all tests (147 tests)
 pytest rfq_parser_tests.py app_tests.py -v
@@ -123,6 +176,22 @@ pytest rfq_parser_tests.py app_tests.py --cov=. --cov-report=html
 
 # Run specific test category
 pytest rfq_parser_tests.py -k "direction" -v
+```
+
+### C++ Tests
+```bash
+# Build and run C++ tests (Windows)
+cd cpp
+build.bat
+
+# Build and run C++ tests (Linux/Mac)
+cd cpp
+chmod +x build.sh
+./build.sh
+
+# Or manually with CMake
+cd cpp/build
+ctest -V
 ```
 
 ### Test Coverage
@@ -219,10 +288,25 @@ rfq_parser_app/
 ├── rfq_parser_tests.py     # Parser test suite (107 tests)
 ├── app.py                  # Streamlit demo application
 ├── app_tests.py            # App test suite (40 tests)
+├── example_cpp_usage.py    # C++ integration examples
+├── setup.py                # Installation with C++ extension
 ├── README.md               # This file
 ├── ROADMAP.md              # Development roadmap
 ├── requirements.txt        # Dependencies
-└── screenshots/            # Demo screenshots
+├── screenshots/            # Demo screenshots
+└── cpp/                    # C++ components (see cpp/README.md)
+    ├── include/rfq/        # Header files
+    │   ├── swap_leg.hpp
+    │   ├── interest_rate_swap.hpp
+    │   ├── swaption.hpp
+    │   ├── swap_validator.hpp
+    │   └── thread_safe_queue.hpp
+    ├── src/                # Implementation files
+    ├── bindings/           # pybind11 Python bindings
+    ├── tests/              # Catch2 C++ tests
+    ├── CMakeLists.txt      # Build configuration
+    ├── build.bat/.sh       # Build scripts
+    └── README.md           # C++ documentation
 ```
 
 ## 📦 Dependencies

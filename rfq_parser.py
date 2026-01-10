@@ -24,6 +24,14 @@ except ImportError:
     MISTRAL_AVAILABLE = False
     Mistral = None
 
+# Try importing C++ extension module
+try:
+    import rfq_cpp
+    CPP_AVAILABLE = True
+except ImportError:
+    CPP_AVAILABLE = False
+    rfq_cpp = None
+
 
 # =============================================================================
 # ENUMS
@@ -260,6 +268,47 @@ class ParsedRFQ:
     def to_json(self, indent: int = 2) -> str:
         """Convert to JSON string"""
         return json.dumps(self.to_dict(), indent=indent)
+
+    def validate_with_cpp(self) -> Optional[Any]:
+        """
+        Validate this RFQ using C++ validator (if available)
+
+        Returns:
+            ValidationReport object from C++ if available, None otherwise
+        """
+        if not CPP_AVAILABLE:
+            return None
+
+        try:
+            validator = rfq_cpp.SwapValidator()
+
+            # Convert ParsedRFQ to dict for C++ validator
+            data = {
+                "direction": self.direction.value,
+                "asset_class": self.asset_class.value,
+                "instrument": self.instrument,
+                "notional": str(self.notional) if self.notional else "",
+                "notional_currency": self.notional_currency,
+                "tenor": self.tenor,
+                "urgency": self.urgency.value,
+            }
+
+            # Run validation
+            results = validator.validate(data)
+
+            # Add validation results to parsing notes
+            if results:
+                for result in results:
+                    severity = "ERROR" if result.is_error() else ("WARNING" if result.is_warning() else "INFO")
+                    note = f"[C++ {severity}] {result.field}: {result.message}"
+                    if note not in self.parsing_notes:
+                        self.parsing_notes.append(note)
+
+            return rfq_cpp.ValidationReport(results) if results else None
+
+        except Exception as e:
+            self.parsing_notes.append(f"C++ validation error: {str(e)}")
+            return None
 
 
 # =============================================================================
@@ -673,7 +722,7 @@ Include a "confidence_score" (0.0-1.0) and "parsing_notes" array with any clarif
 
     def _build_parsed_rfq(self, raw_text: str, data: Dict[str, Any]) -> ParsedRFQ:
         """Build ParsedRFQ from LLM response data"""
-        
+
         # Map direction
         direction_str = data.get('direction', '').upper()
         direction_map = {
@@ -683,7 +732,7 @@ Include a "confidence_score" (0.0-1.0) and "parsing_notes" array with any clarif
             '2WAY': Direction.TWO_WAY
         }
         direction = direction_map.get(direction_str, Direction.UNKNOWN)
-        
+
         # Map asset class
         asset_str = data.get('asset_class', '').upper().replace(' ', '_')
         asset_map = {
@@ -700,7 +749,7 @@ Include a "confidence_score" (0.0-1.0) and "parsing_notes" array with any clarif
             'COMMODITY': AssetClass.COMMODITY
         }
         asset_class = asset_map.get(asset_str, AssetClass.UNKNOWN)
-        
+
         # Map urgency
         urgency_str = data.get('urgency', '').upper()
         urgency_map = {
@@ -710,11 +759,11 @@ Include a "confidence_score" (0.0-1.0) and "parsing_notes" array with any clarif
             'EOD': Urgency.EOD
         }
         urgency = urgency_map.get(urgency_str, Urgency.NORMAL)
-        
+
         # Map urgency level
         urgency_level = UrgencyLevel.from_string(urgency_str) if urgency_str else UrgencyLevel.NORMAL
-        
-        return ParsedRFQ(
+
+        parsed = ParsedRFQ(
             raw_text=raw_text,
             direction=direction,
             asset_class=asset_class,
@@ -734,6 +783,12 @@ Include a "confidence_score" (0.0-1.0) and "parsing_notes" array with any clarif
             confidence_score=data.get('confidence_score', 0.8),
             parsing_notes=data.get('parsing_notes', [])
         )
+
+        # Run C++ validation if available
+        if CPP_AVAILABLE:
+            parsed.validate_with_cpp()
+
+        return parsed
 
     def parse_batch(self, rfq_texts: List[str]) -> List[ParsedRFQ]:
         """Parse multiple RFQ messages"""
@@ -775,7 +830,9 @@ __all__ = [
     "MockResponse",
     "MockChoice",
     "MockMessage",
+    # Availability flags
     "MISTRAL_AVAILABLE",
+    "CPP_AVAILABLE",
 ]
 
 
