@@ -1,6 +1,6 @@
 # RFQ Parser C++ Components
 
-High-performance C++ components for interest rate derivatives and RFQ validation, demonstrating both **modern C++ expertise** and **finance domain knowledge** for trading desk interviews.
+High-performance C++ components for interest rate derivatives and RFQ validation, demonstrating both **modern C++ expertise** and **finance domain knowledge** for financial trading systems.
 
 ## 🎯 What This Demonstrates
 
@@ -273,22 +273,6 @@ result = parser.parse("Buy 10MM EURUSD 3M forward")
 - **Builder Pattern**: Fluent, validated construction
 - **Strategy Pattern**: Pluggable validation rules via `std::function`
 
-## 🎓 Interview Talking Points
-
-When discussing this code in an interview:
-
-1. **Modern C++**: "I used C++17 features like std::optional for null safety and std::variant for type-safe polymorphism over the rate field"
-
-2. **Finance Domain**: "The Bermudan swaption allows exercise on specific dates—like quarterly or annually—which is common in structured products"
-
-3. **Concurrency**: "The ThreadSafeQueue uses condition variables for efficient blocking rather than busy-waiting, critical for high-frequency systems"
-
-4. **Design Patterns**: "The Builder pattern for SwapLeg ensures all required fields are set before construction, preventing invalid states"
-
-5. **Python Integration**: "Using pybind11, I exposed the C++ validation to Python with minimal overhead—the validator runs automatically on parsed RFQs"
-
-6. **Testing**: "All components have comprehensive Catch2 tests covering edge cases like Bermudan exercise date validation"
-
 ## 📊 Performance Characteristics
 
 - **SwapValidator**: O(n) where n = number of validation rules
@@ -307,8 +291,4 @@ Dependencies (fetched automatically):
 
 ## 📝 License
 
-MIT License - feel free to use in your interview portfolio or projects.
-
----
-
-**For Trading Desk Interviews**: This code demonstrates production-ready C++ for financial systems, combining modern language features with deep finance knowledge. Perfect for roles in quantitative development, electronic trading, or risk systems.
+MIT License - Production-ready C++ for financial systems, combining modern language features with deep finance knowledge. Suitable for quantitative development, electronic trading, and risk management systems.

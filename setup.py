@@ -85,7 +85,7 @@ version = "0.1.0"
 setup(
     name="rfq-parser",
     version=version,
-    author="Trading Desk Interview Candidate",
+    author="RFQ Parser Contributors",
     description="RFQ Parser with LLM and C++ high-performance components",
     long_description=long_description,
     long_description_content_type="text/markdown",
