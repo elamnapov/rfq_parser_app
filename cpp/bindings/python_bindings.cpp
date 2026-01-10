@@ -130,15 +130,154 @@ PYBIND11_MODULE(rfq_cpp, m) {
     // ========================================================================
 
     py::class_<InterestRateSwap>(m, "InterestRateSwap")
-        .def_static("create_vanilla_swap", &InterestRateSwap::createVanillaSwap,
+        .def_static("create_vanilla_swap",
+                   [](SwapLeg& pay_leg, SwapLeg& receive_leg,
+                      const std::string& tenor, const std::string& effective_date) {
+                       // Create copies and move into factory
+                       auto pay_copy = SwapLeg::builder()
+                           .withCurrency(pay_leg.currency())
+                           .withNotional(pay_leg.notional())
+                           .withDayCount(pay_leg.dayCount())
+                           .withFrequency(pay_leg.frequency())
+                           .build();
+
+                       auto receive_copy = SwapLeg::builder()
+                           .withCurrency(receive_leg.currency())
+                           .withNotional(receive_leg.notional())
+                           .withDayCount(receive_leg.dayCount())
+                           .withFrequency(receive_leg.frequency())
+                           .build();
+
+                       // Set rate appropriately
+                       if (pay_leg.isFixed()) {
+                           pay_copy = SwapLeg::builder()
+                               .withCurrency(pay_leg.currency())
+                               .withNotional(pay_leg.notional())
+                               .withFixedRate(pay_leg.fixedRate())
+                               .withDayCount(pay_leg.dayCount())
+                               .withFrequency(pay_leg.frequency())
+                               .build();
+                       } else {
+                           pay_copy = SwapLeg::builder()
+                               .withCurrency(pay_leg.currency())
+                               .withNotional(pay_leg.notional())
+                               .withFloatingIndex(pay_leg.floatingIndex())
+                               .withDayCount(pay_leg.dayCount())
+                               .withFrequency(pay_leg.frequency())
+                               .build();
+                           if (pay_leg.spread()) {
+                               // Rebuild with spread
+                           }
+                       }
+
+                       if (receive_leg.isFixed()) {
+                           receive_copy = SwapLeg::builder()
+                               .withCurrency(receive_leg.currency())
+                               .withNotional(receive_leg.notional())
+                               .withFixedRate(receive_leg.fixedRate())
+                               .withDayCount(receive_leg.dayCount())
+                               .withFrequency(receive_leg.frequency())
+                               .build();
+                       } else {
+                           receive_copy = SwapLeg::builder()
+                               .withCurrency(receive_leg.currency())
+                               .withNotional(receive_leg.notional())
+                               .withFloatingIndex(receive_leg.floatingIndex())
+                               .withDayCount(receive_leg.dayCount())
+                               .withFrequency(receive_leg.frequency())
+                               .build();
+                       }
+
+                       return InterestRateSwap::createVanillaSwap(
+                           std::move(pay_copy), std::move(receive_copy), tenor, effective_date
+                       );
+                   },
                    py::arg("pay_leg"), py::arg("receive_leg"),
                    py::arg("tenor"), py::arg("effective_date"),
                    "Create a vanilla IRS (fixed-for-floating)")
-        .def_static("create_basis_swap", &InterestRateSwap::createBasisSwap,
+        .def_static("create_basis_swap",
+                   [](SwapLeg& pay_leg, SwapLeg& receive_leg,
+                      const std::string& tenor, const std::string& effective_date) {
+                       auto pay_copy = SwapLeg::builder()
+                           .withCurrency(pay_leg.currency())
+                           .withNotional(pay_leg.notional())
+                           .withFloatingIndex(pay_leg.floatingIndex())
+                           .withDayCount(pay_leg.dayCount())
+                           .withFrequency(pay_leg.frequency())
+                           .build();
+
+                       auto receive_copy = SwapLeg::builder()
+                           .withCurrency(receive_leg.currency())
+                           .withNotional(receive_leg.notional())
+                           .withFloatingIndex(receive_leg.floatingIndex())
+                           .withDayCount(receive_leg.dayCount())
+                           .withFrequency(receive_leg.frequency())
+                           .build();
+
+                       return InterestRateSwap::createBasisSwap(
+                           std::move(pay_copy), std::move(receive_copy), tenor, effective_date
+                       );
+                   },
                    py::arg("pay_leg"), py::arg("receive_leg"),
                    py::arg("tenor"), py::arg("effective_date"),
                    "Create a basis swap (floating-for-floating)")
-        .def_static("create_cross_currency_swap", &InterestRateSwap::createCrossCurrencySwap,
+        .def_static("create_cross_currency_swap",
+                   [](SwapLeg& pay_leg, SwapLeg& receive_leg,
+                      const std::string& tenor, const std::string& effective_date, double fx_rate) {
+                       auto pay_copy = SwapLeg::builder()
+                           .withCurrency(pay_leg.currency())
+                           .withNotional(pay_leg.notional())
+                           .withDayCount(pay_leg.dayCount())
+                           .withFrequency(pay_leg.frequency())
+                           .build();
+
+                       auto receive_copy = SwapLeg::builder()
+                           .withCurrency(receive_leg.currency())
+                           .withNotional(receive_leg.notional())
+                           .withDayCount(receive_leg.dayCount())
+                           .withFrequency(receive_leg.frequency())
+                           .build();
+
+                       if (pay_leg.isFixed()) {
+                           pay_copy = SwapLeg::builder()
+                               .withCurrency(pay_leg.currency())
+                               .withNotional(pay_leg.notional())
+                               .withFixedRate(pay_leg.fixedRate())
+                               .withDayCount(pay_leg.dayCount())
+                               .withFrequency(pay_leg.frequency())
+                               .build();
+                       } else {
+                           pay_copy = SwapLeg::builder()
+                               .withCurrency(pay_leg.currency())
+                               .withNotional(pay_leg.notional())
+                               .withFloatingIndex(pay_leg.floatingIndex())
+                               .withDayCount(pay_leg.dayCount())
+                               .withFrequency(pay_leg.frequency())
+                               .build();
+                       }
+
+                       if (receive_leg.isFixed()) {
+                           receive_copy = SwapLeg::builder()
+                               .withCurrency(receive_leg.currency())
+                               .withNotional(receive_leg.notional())
+                               .withFixedRate(receive_leg.fixedRate())
+                               .withDayCount(receive_leg.dayCount())
+                               .withFrequency(receive_leg.frequency())
+                               .build();
+                       } else {
+                           receive_copy = SwapLeg::builder()
+                               .withCurrency(receive_leg.currency())
+                               .withNotional(receive_leg.notional())
+                               .withFloatingIndex(receive_leg.floatingIndex())
+                               .withDayCount(receive_leg.dayCount())
+                               .withFrequency(receive_leg.frequency())
+                               .build();
+                       }
+
+                       return InterestRateSwap::createCrossCurrencySwap(
+                           std::move(pay_copy), std::move(receive_copy), tenor, effective_date, fx_rate
+                       );
+                   },
                    py::arg("pay_leg"), py::arg("receive_leg"),
                    py::arg("tenor"), py::arg("effective_date"), py::arg("fx_rate"),
                    "Create a cross-currency swap")
