@@ -105,12 +105,12 @@ double implied_vol = SwaptionPricer::impliedVolatility(
     swaption, market_price, forward_rate, time_to_expiry);
 ```
 
-### 4. SwapValidator (`swap_validator.hpp/cpp`)
-Validates parsed RFQ data with **flexible rule system**.
+### 4. RFQValidator (`rfq_validator.hpp/cpp`)
+Validates parsed RFQ data with **flexible rule system** for all instrument types.
 
 **Key Features:**
 ```cpp
-SwapValidator validator;
+RFQValidator validator;
 validator.setStrictMode(true);
 validator.setMinNotional(1'000'000.0);
 
@@ -194,7 +194,7 @@ The test suite (`tests/test_main.cpp`) includes:
 - **SwapLeg Tests**: Builder pattern, validation, year fraction calculations
 - **InterestRateSwap Tests**: Vanilla, basis, cross-currency swaps
 - **Swaption Tests**: European, American, Bermudan exercise logic
-- **SwapValidator Tests**: Built-in rules, custom rules, severity levels
+- **RFQValidator Tests**: Built-in rules, custom rules, severity levels
 - **ThreadSafeQueue Tests**: Multi-threaded producer/consumer, shutdown behavior
 
 Run with:
@@ -224,7 +224,7 @@ leg = (rfq_cpp.SwapLeg.builder()
        .build())
 
 # Validate RFQ data
-validator = rfq_cpp.SwapValidator()
+validator = rfq_cpp.RFQValidator()
 results = validator.validate({
     "direction": "PAY",
     "currency": "USD",
@@ -275,7 +275,7 @@ result = parser.parse("Buy 10MM EURUSD 3M forward")
 
 ## 📊 Performance Characteristics
 
-- **SwapValidator**: O(n) where n = number of validation rules
+- **RFQValidator**: O(n) where n = number of validation rules
 - **ThreadSafeQueue**: O(1) push/pop, lock-free size queries
 - **Memory**: All classes use value semantics where possible, minimal heap allocations
 

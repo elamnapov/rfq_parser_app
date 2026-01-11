@@ -21,7 +21,7 @@ InterestRateSwap::InterestRateSwap(SwapType type,
     , fx_rate_(fx_rate) {}
 
 // Factory method: Vanilla swap (fixed-for-floating)
-std::unique_ptr<InterestRateSwap> InterestRateSwap::createVanillaSwap(
+std::shared_ptr<InterestRateSwap> InterestRateSwap::createVanillaSwap(
     std::unique_ptr<SwapLeg> pay_leg,
     std::unique_ptr<SwapLeg> receive_leg,
     const std::string& tenor,
@@ -31,7 +31,7 @@ std::unique_ptr<InterestRateSwap> InterestRateSwap::createVanillaSwap(
         throw std::invalid_argument("Invalid vanilla swap structure");
     }
 
-    return std::unique_ptr<InterestRateSwap>(new InterestRateSwap(
+    return std::shared_ptr<InterestRateSwap>(new InterestRateSwap(
         SwapType::VANILLA,
         std::move(pay_leg),
         std::move(receive_leg),
@@ -41,7 +41,7 @@ std::unique_ptr<InterestRateSwap> InterestRateSwap::createVanillaSwap(
 }
 
 // Factory method: Basis swap (floating-for-floating)
-std::unique_ptr<InterestRateSwap> InterestRateSwap::createBasisSwap(
+std::shared_ptr<InterestRateSwap> InterestRateSwap::createBasisSwap(
     std::unique_ptr<SwapLeg> pay_leg,
     std::unique_ptr<SwapLeg> receive_leg,
     const std::string& tenor,
@@ -51,7 +51,7 @@ std::unique_ptr<InterestRateSwap> InterestRateSwap::createBasisSwap(
         throw std::invalid_argument("Invalid basis swap structure");
     }
 
-    return std::unique_ptr<InterestRateSwap>(new InterestRateSwap(
+    return std::shared_ptr<InterestRateSwap>(new InterestRateSwap(
         SwapType::BASIS,
         std::move(pay_leg),
         std::move(receive_leg),
@@ -61,7 +61,7 @@ std::unique_ptr<InterestRateSwap> InterestRateSwap::createBasisSwap(
 }
 
 // Factory method: Cross-currency swap
-std::unique_ptr<InterestRateSwap> InterestRateSwap::createCrossCurrencySwap(
+std::shared_ptr<InterestRateSwap> InterestRateSwap::createCrossCurrencySwap(
     std::unique_ptr<SwapLeg> pay_leg,
     std::unique_ptr<SwapLeg> receive_leg,
     const std::string& tenor,
@@ -76,7 +76,7 @@ std::unique_ptr<InterestRateSwap> InterestRateSwap::createCrossCurrencySwap(
         throw std::invalid_argument("FX rate must be positive");
     }
 
-    return std::unique_ptr<InterestRateSwap>(new InterestRateSwap(
+    return std::shared_ptr<InterestRateSwap>(new InterestRateSwap(
         SwapType::CROSS_CURRENCY,
         std::move(pay_leg),
         std::move(receive_leg),

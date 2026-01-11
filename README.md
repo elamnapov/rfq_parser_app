@@ -237,7 +237,7 @@ The C++ extension (`rfq_cpp`) provides:
 
 | Component | Purpose |
 |-----------|---------|
-| **SwapValidator** | High-speed validation of parsed RFQ data |
+| **RFQValidator** | High-speed validation of parsed RFQ data (all instrument types) |
 | **SwapLeg** | Interest rate swap leg with day count conventions |
 | **InterestRateSwap** | Vanilla, basis, and cross-currency swaps with net payment calculation |
 | **Swaption** | European, American, and Bermudan swaptions |
@@ -267,11 +267,11 @@ The C++ extension (`rfq_cpp`) provides:
                      │ (if C++ available)
                      ▼
         ┌────────────────────────────────┐
-        │   C++: SwapValidator           │
+        │   C++: RFQValidator            │
         │   - Validates currency codes   │
         │   - Checks notional limits     │
         │   - Validates tenor format     │
-        │   - Domain-specific rules      │
+        │   - Generic RFQ field rules    │
         └────────────┬───────────────────┘
                      │
                      ▼
@@ -386,7 +386,7 @@ print(swap.to_string())
 #         Receive: FLOATING leg: USD 10000000.0000 notional, index=SOFR, ACT/360, Quarterly
 
 # Validate manually
-validator = rfq_cpp.SwapValidator()
+validator = rfq_cpp.RFQValidator()
 results = validator.validate({
     "direction": "PAY",
     "currency": "USD",
@@ -520,7 +520,7 @@ python example_cpp_usage.py
 | **1. SwapLeg Builder** | Creating fixed and floating rate swap legs with day count conventions |
 | **2. Vanilla IRS** | 5Y USD interest rate swap paying fixed vs receiving SOFR |
 | **3. Bermudan Swaption** | ⚠️ Shows pybind11 holder type limitation (see note below) |
-| **4. SwapValidator** | Validating RFQ data with built-in rules (currency, notional, tenor) |
+| **4. RFQValidator** | Validating RFQ data with built-in rules (currency, notional, tenor) for all instrument types |
 | **5. ThreadSafeQueue** | Multi-threaded RFQ processing with producer-consumer pattern |
 | **6. Parser Integration** | How Python parser automatically uses C++ validation |
 

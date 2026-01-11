@@ -99,6 +99,7 @@ def example_bermudan_swaption():
                    .with_frequency(rfq_cpp.PaymentFrequency.QUARTERLY)
                    .build())
 
+    # Create vanilla swap (now returns shared_ptr, compatible with Swaption)
     swap = rfq_cpp.InterestRateSwap.create_vanilla_swap(
         pay_leg, receive_leg, "10Y", "2025-01-01"
     )
@@ -106,35 +107,27 @@ def example_bermudan_swaption():
     # Bermudan: can exercise on specific dates
     exercise_dates = ["2025-01-01", "2026-01-01", "2027-01-01", "2028-01-01"]
 
-    try:
-        swaption = rfq_cpp.Swaption.create_bermudan(
-            rfq_cpp.SwaptionType.PAYER,
-            swap,
-            "2028-12-31",
-            0.03,
-            exercise_dates,
-            75_000.0  # premium
-        )
+    swaption = rfq_cpp.Swaption.create_bermudan(
+        rfq_cpp.SwaptionType.PAYER,
+        swap,
+        "2028-12-31",
+        0.03,
+        exercise_dates,
+        75_000.0  # premium
+    )
 
-        print(swaption.to_string())
-        print(f"\nCan exercise on 2026-01-01: {swaption.can_exercise_on('2026-01-01')}")
-        print(f"Can exercise on 2026-06-15: {swaption.can_exercise_on('2026-06-15')}\n")
-    except RuntimeError as e:
-        print("⚠️  Swaption C++ Example Limitation:")
-        print(f"   Error: {e}")
-        print("   Note: Swaption requires shared_ptr<InterestRateSwap>, but create_vanilla_swap()")
-        print("         returns unique_ptr. This is a pybind11 holder type limitation.")
-        print("   Workaround: Use Python Black-76 pricing (see rfq_parser.py:price_with_cpp())")
-        print("   The Python implementation provides full swaption pricing functionality.\n")
+    print(swaption.to_string())
+    print(f"\nCan exercise on 2026-01-01: {swaption.can_exercise_on('2026-01-01')}")
+    print(f"Can exercise on 2026-06-15: {swaption.can_exercise_on('2026-06-15')}\n")
 
 
 def example_swap_validator():
     """Example: Validate RFQ data"""
     print("=" * 60)
-    print("EXAMPLE 4: Swap Validator")
+    print("EXAMPLE 4: RFQ Validator")
     print("=" * 60)
 
-    validator = rfq_cpp.SwapValidator()
+    validator = rfq_cpp.RFQValidator()
     validator.set_min_notional(1_000_000)
     validator.set_max_notional(100_000_000)
 

@@ -1,4 +1,4 @@
-#include "rfq/swap_validator.hpp"
+#include "rfq/rfq_validator.hpp"
 #include <algorithm>
 #include <sstream>
 #include <cctype>
@@ -6,14 +6,14 @@
 
 namespace rfq {
 
-SwapValidator::SwapValidator()
+RFQValidator::RFQValidator()
     : strict_mode_(false)
     , min_notional_(1000.0)
     , max_notional_(1e12) {
     registerDefaultRules();
 }
 
-void SwapValidator::registerDefaultRules() {
+void RFQValidator::registerDefaultRules() {
     // Register built-in validation rules using lambdas
 
     rules_["direction"] = [this](const auto& data) {
@@ -41,15 +41,15 @@ void SwapValidator::registerDefaultRules() {
     };
 }
 
-void SwapValidator::addRule(const std::string& rule_name, ValidationRule rule) {
+void RFQValidator::addRule(const std::string& rule_name, ValidationRule rule) {
     rules_[rule_name] = std::move(rule);
 }
 
-void SwapValidator::removeRule(const std::string& rule_name) {
+void RFQValidator::removeRule(const std::string& rule_name) {
     rules_.erase(rule_name);
 }
 
-std::vector<ValidationResult> SwapValidator::validate(
+std::vector<ValidationResult> RFQValidator::validate(
     const std::map<std::string, std::string>& parsed_data) const {
 
     std::vector<ValidationResult> results;
@@ -65,7 +65,7 @@ std::vector<ValidationResult> SwapValidator::validate(
     return results;
 }
 
-bool SwapValidator::isValid(
+bool RFQValidator::isValid(
     const std::map<std::string, std::string>& parsed_data) const {
 
     auto results = validate(parsed_data);
@@ -73,7 +73,7 @@ bool SwapValidator::isValid(
                        [](const auto& r) { return r.isError(); });
 }
 
-std::vector<ValidationResult> SwapValidator::getErrors(
+std::vector<ValidationResult> RFQValidator::getErrors(
     const std::map<std::string, std::string>& parsed_data) const {
 
     auto all_results = validate(parsed_data);
@@ -86,7 +86,7 @@ std::vector<ValidationResult> SwapValidator::getErrors(
     return errors;
 }
 
-std::vector<ValidationResult> SwapValidator::getWarnings(
+std::vector<ValidationResult> RFQValidator::getWarnings(
     const std::map<std::string, std::string>& parsed_data) const {
 
     auto all_results = validate(parsed_data);
@@ -99,7 +99,7 @@ std::vector<ValidationResult> SwapValidator::getWarnings(
     return warnings;
 }
 
-std::optional<std::string> SwapValidator::getValue(
+std::optional<std::string> RFQValidator::getValue(
     const std::map<std::string, std::string>& data,
     const std::string& key) const {
 
@@ -112,7 +112,7 @@ std::optional<std::string> SwapValidator::getValue(
 
 // Built-in validation rule implementations
 
-std::optional<ValidationResult> SwapValidator::validateDirection(
+std::optional<ValidationResult> RFQValidator::validateDirection(
     const std::map<std::string, std::string>& data) const {
 
     auto direction = getValue(data, "direction");
@@ -139,7 +139,7 @@ std::optional<ValidationResult> SwapValidator::validateDirection(
     return std::nullopt;
 }
 
-std::optional<ValidationResult> SwapValidator::validateCurrency(
+std::optional<ValidationResult> RFQValidator::validateCurrency(
     const std::map<std::string, std::string>& data) const {
 
     auto currency = getValue(data, "currency");
@@ -170,7 +170,7 @@ std::optional<ValidationResult> SwapValidator::validateCurrency(
     return std::nullopt;
 }
 
-std::optional<ValidationResult> SwapValidator::validateNotional(
+std::optional<ValidationResult> RFQValidator::validateNotional(
     const std::map<std::string, std::string>& data) const {
 
     auto notional_str = getValue(data, "notional");
@@ -216,7 +216,7 @@ std::optional<ValidationResult> SwapValidator::validateNotional(
     return std::nullopt;
 }
 
-std::optional<ValidationResult> SwapValidator::validateTenor(
+std::optional<ValidationResult> RFQValidator::validateTenor(
     const std::map<std::string, std::string>& data) const {
 
     auto tenor = getValue(data, "tenor");
@@ -237,7 +237,7 @@ std::optional<ValidationResult> SwapValidator::validateTenor(
     return std::nullopt;
 }
 
-std::optional<ValidationResult> SwapValidator::validateRate(
+std::optional<ValidationResult> RFQValidator::validateRate(
     const std::map<std::string, std::string>& data) const {
 
     auto rate_str = getValue(data, "rate");
@@ -270,7 +270,7 @@ std::optional<ValidationResult> SwapValidator::validateRate(
     return std::nullopt;
 }
 
-std::optional<ValidationResult> SwapValidator::validateDayCount(
+std::optional<ValidationResult> RFQValidator::validateDayCount(
     const std::map<std::string, std::string>& data) const {
 
     auto day_count = getValue(data, "day_count");

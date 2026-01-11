@@ -6,7 +6,7 @@
 #include "rfq/swap_leg.hpp"
 #include "rfq/interest_rate_swap.hpp"
 #include "rfq/swaption.hpp"
-#include "rfq/swap_validator.hpp"
+#include "rfq/rfq_validator.hpp"
 #include "rfq/thread_safe_queue.hpp"
 
 namespace py = pybind11;
@@ -129,7 +129,7 @@ PYBIND11_MODULE(rfq_cpp, m) {
     // INTEREST RATE SWAP
     // ========================================================================
 
-    py::class_<InterestRateSwap>(m, "InterestRateSwap")
+    py::class_<InterestRateSwap, std::shared_ptr<InterestRateSwap>>(m, "InterestRateSwap")
         .def_static("create_vanilla_swap",
                    [](SwapLeg& pay_leg, SwapLeg& receive_leg,
                       const std::string& tenor, const std::string& effective_date) {
@@ -364,22 +364,22 @@ PYBIND11_MODULE(rfq_cpp, m) {
         .def("is_warning", &ValidationResult::isWarning)
         .def("is_info", &ValidationResult::isInfo);
 
-    py::class_<SwapValidator>(m, "SwapValidator")
+    py::class_<RFQValidator>(m, "RFQValidator")
         .def(py::init<>())
-        .def("add_rule", &SwapValidator::addRule,
+        .def("add_rule", &RFQValidator::addRule,
              py::arg("rule_name"), py::arg("rule"),
              "Add custom validation rule")
-        .def("remove_rule", &SwapValidator::removeRule, py::arg("rule_name"))
-        .def("validate", &SwapValidator::validate, py::arg("parsed_data"),
+        .def("remove_rule", &RFQValidator::removeRule, py::arg("rule_name"))
+        .def("validate", &RFQValidator::validate, py::arg("parsed_data"),
              "Validate parsed RFQ data")
-        .def("is_valid", &SwapValidator::isValid, py::arg("parsed_data"))
-        .def("get_errors", &SwapValidator::getErrors, py::arg("parsed_data"))
-        .def("get_warnings", &SwapValidator::getWarnings, py::arg("parsed_data"))
-        .def("set_strict_mode", &SwapValidator::setStrictMode, py::arg("strict"))
-        .def("strict_mode", &SwapValidator::strictMode)
-        .def("set_min_notional", &SwapValidator::setMinNotional, py::arg("min_notional"))
-        .def("set_max_notional", &SwapValidator::setMaxNotional, py::arg("max_notional"))
-        .def("rule_count", &SwapValidator::ruleCount);
+        .def("is_valid", &RFQValidator::isValid, py::arg("parsed_data"))
+        .def("get_errors", &RFQValidator::getErrors, py::arg("parsed_data"))
+        .def("get_warnings", &RFQValidator::getWarnings, py::arg("parsed_data"))
+        .def("set_strict_mode", &RFQValidator::setStrictMode, py::arg("strict"))
+        .def("strict_mode", &RFQValidator::strictMode)
+        .def("set_min_notional", &RFQValidator::setMinNotional, py::arg("min_notional"))
+        .def("set_max_notional", &RFQValidator::setMaxNotional, py::arg("max_notional"))
+        .def("rule_count", &RFQValidator::ruleCount);
 
     py::class_<ValidationReport>(m, "ValidationReport")
         .def(py::init<std::vector<ValidationResult>>(), py::arg("results"))

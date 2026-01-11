@@ -33,21 +33,25 @@ struct ValidationResult {
 };
 
 /**
- * SwapValidator - Validates parsed RFQ data from Python parser
+ * RFQValidator - Validates parsed RFQ data from Python parser
+ *
+ * This validator handles generic RFQ fields that apply to all instrument types
+ * (swaps, swaptions, FX, bonds, etc.). Instrument-specific validation is done
+ * by the respective C++ classes (InterestRateSwap::validate(), Swaption::validate(), etc.)
  *
  * Demonstrates:
  * - Integration with Python data
  * - Flexible validation rules using std::function
- * - Domain-specific validation logic
+ * - Domain-agnostic validation logic
  * - std::map for configuration
  */
-class SwapValidator {
+class RFQValidator {
 public:
     // Validation rule: takes parsed data, returns optional error
     using ValidationRule = std::function<std::optional<ValidationResult>(
         const std::map<std::string, std::string>&)>;
 
-    SwapValidator();
+    RFQValidator();
 
     // Add custom validation rule
     void addRule(const std::string& rule_name, ValidationRule rule);

@@ -55,14 +55,14 @@ set(RFQ_SOURCES
     src/swap_leg.cpp
     src/interest_rate_swap.cpp
     src/swaption.cpp
-    src/swap_validator.cpp
+    src/rfq_validator.cpp
 )
 
 set(RFQ_HEADERS
     include/rfq/swap_leg.hpp
     include/rfq/interest_rate_swap.hpp
     include/rfq/swaption.hpp
-    include/rfq/swap_validator.hpp
+    include/rfq/rfq_validator.hpp
     include/rfq/thread_safe_queue.hpp
 )
 

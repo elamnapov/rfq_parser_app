@@ -27,19 +27,19 @@ enum class SwapType {
 class InterestRateSwap {
 public:
     // Factory methods for different swap types
-    static std::unique_ptr<InterestRateSwap> createVanillaSwap(
+    static std::shared_ptr<InterestRateSwap> createVanillaSwap(
         std::unique_ptr<SwapLeg> pay_leg,
         std::unique_ptr<SwapLeg> receive_leg,
         const std::string& tenor,
         const std::string& effective_date);
 
-    static std::unique_ptr<InterestRateSwap> createBasisSwap(
+    static std::shared_ptr<InterestRateSwap> createBasisSwap(
         std::unique_ptr<SwapLeg> pay_leg,
         std::unique_ptr<SwapLeg> receive_leg,
         const std::string& tenor,
         const std::string& effective_date);
 
-    static std::unique_ptr<InterestRateSwap> createCrossCurrencySwap(
+    static std::shared_ptr<InterestRateSwap> createCrossCurrencySwap(
         std::unique_ptr<SwapLeg> pay_leg,
         std::unique_ptr<SwapLeg> receive_leg,
         const std::string& tenor,

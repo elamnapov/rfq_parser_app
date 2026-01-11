@@ -281,7 +281,7 @@ class ParsedRFQ:
             return None
 
         try:
-            validator = rfq_cpp.SwapValidator()
+            validator = rfq_cpp.RFQValidator()
 
             # Convert ParsedRFQ to dict for C++ validator
             data = {
@@ -398,63 +398,56 @@ class ParsedRFQ:
                 if note not in self.parsing_notes:
                     self.parsing_notes.append(note)
 
-            # For Swaption: Use simplified Black-76 pricing
-            # Note: Full C++ swaption pricing has holder type conflicts (unique_ptr vs shared_ptr)
-            # Using simplified Python implementation of Black-76 for demonstration
+            # For Swaption: Use C++ Black-76 pricing
             elif self.asset_class == AssetClass.SWAPTION:
-                import math
-
                 tenor = self.tenor or "5Y"
                 expiry_date = "2024-12-15"  # Default expiry
+                effective_date = self.settlement_date or "2024-01-15"
 
                 # Determine swaption type
-                swaption_type = "Payer" if self.direction == Direction.BUY else "Receiver"
+                swaption_type = rfq_cpp.SwaptionType.PAYER if self.direction == Direction.BUY else rfq_cpp.SwaptionType.RECEIVER
+                swaption_type_str = "Payer" if self.direction == Direction.BUY else "Receiver"
 
-                # Simplified Black-76 formula
-                # Price = Notional * Annuity * [F * N(d1) - K * N(d2)] for payer
-                # where d1 = [ln(F/K) + 0.5*vol^2*T] / (vol*sqrt(T))
-                #       d2 = d1 - vol*sqrt(T)
+                # Create fixed leg (paying fixed in underlying swap)
+                fixed_leg = rfq_cpp.SwapLeg.builder() \
+                    .with_currency(currency) \
+                    .with_notional(notional) \
+                    .with_fixed_rate(strike_rate) \
+                    .with_day_count(rfq_cpp.DayCountConvention.ACT_360) \
+                    .with_frequency(rfq_cpp.PaymentFrequency.SEMI_ANNUAL) \
+                    .build()
 
-                F = forward_rate  # Forward rate
-                K = strike_rate   # Strike rate
-                T = time_to_expiry
-                sigma = volatility
+                # Create floating leg (receiving SOFR in underlying swap)
+                floating_leg = rfq_cpp.SwapLeg.builder() \
+                    .with_currency(currency) \
+                    .with_notional(notional) \
+                    .with_floating_index(rfq_cpp.FloatingIndex.SOFR) \
+                    .with_day_count(rfq_cpp.DayCountConvention.ACT_360) \
+                    .with_frequency(rfq_cpp.PaymentFrequency.QUARTERLY) \
+                    .build()
 
-                # Annuity factor (simplified: assume 2 payments per year for tenor)
-                tenor_years = 5.0  # Default to 5Y
-                if self.tenor:
-                    if 'Y' in self.tenor:
-                        tenor_years = float(self.tenor.replace('Y', ''))
-                    elif 'M' in self.tenor:
-                        tenor_years = float(self.tenor.replace('M', '')) / 12.0
+                # Create vanilla swap (returns shared_ptr, compatible with Swaption)
+                swap = rfq_cpp.InterestRateSwap.create_vanilla_swap(
+                    fixed_leg, floating_leg, tenor, effective_date
+                )
 
-                annuity = tenor_years / 2.0  # Simplified annuity
+                # Create European swaption
+                swaption = rfq_cpp.Swaption.create_european(
+                    swaption_type,
+                    swap,
+                    expiry_date,
+                    strike_rate,
+                    0.0  # premium (not known)
+                )
 
-                # Black-76 pricing
-                if sigma > 0 and T > 0 and K > 0:
-                    d1 = (math.log(F / K) + 0.5 * sigma**2 * T) / (sigma * math.sqrt(T))
-                    d2 = d1 - sigma * math.sqrt(T)
-
-                    # Normal CDF approximation
-                    def norm_cdf(x):
-                        return 0.5 * (1.0 + math.erf(x / math.sqrt(2.0)))
-
-                    if swaption_type == "Payer":
-                        intrinsic = F * norm_cdf(d1) - K * norm_cdf(d2)
-                    else:  # Receiver
-                        intrinsic = K * norm_cdf(-d2) - F * norm_cdf(-d1)
-
-                    black_price = notional * annuity * intrinsic
-                else:
-                    # Intrinsic value only
-                    if swaption_type == "Payer":
-                        black_price = max(0, notional * annuity * (F - K))
-                    else:
-                        black_price = max(0, notional * annuity * (K - F))
+                # Price using C++ Black-76 pricer
+                black_price = rfq_cpp.SwaptionPricer.black_price(
+                    swaption, forward_rate, volatility, time_to_expiry
+                )
 
                 pricing_info = {
                     "product_type": "Swaption",
-                    "type": swaption_type,
+                    "type": swaption_type_str,
                     "exercise_style": "European",
                     "notional": notional,
                     "currency": currency,
@@ -464,18 +457,13 @@ class ParsedRFQ:
                     "black_price": round(black_price, 2),
                     "forward_rate": f"{forward_rate * 100:.2f}%",
                     "volatility": f"{volatility * 100:.0f}%",
-                    "description": f"{swaption_type} swaption on {tenor} IRS"
+                    "description": f"{swaption_type_str} swaption on {tenor} IRS"
                 }
 
                 # Add note about pricing
-                note = f"[PYTHON PRICING] Swaption Black-76 price: {currency} {black_price:,.2f} (vol={volatility*100:.0f}%, fwd={forward_rate*100:.1f}%)"
+                note = f"[C++ PRICING] Swaption Black-76 price: {currency} {black_price:,.2f} (vol={volatility*100:.0f}%, fwd={forward_rate*100:.1f}%)"
                 if note not in self.parsing_notes:
                     self.parsing_notes.append(note)
-
-                # Add technical note
-                tech_note = "[INFO] Swaption priced using Python Black-76 (C++ holder type limitation)"
-                if tech_note not in self.parsing_notes:
-                    self.parsing_notes.append(tech_note)
 
             return pricing_info if pricing_info else None
 

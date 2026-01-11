@@ -5,7 +5,7 @@
 #include "rfq/swap_leg.hpp"
 #include "rfq/interest_rate_swap.hpp"
 #include "rfq/swaption.hpp"
-#include "rfq/swap_validator.hpp"
+#include "rfq/rfq_validator.hpp"
 #include "rfq/thread_safe_queue.hpp"
 
 #include <thread>
@@ -366,11 +366,11 @@ TEST_CASE("Swaption - Intrinsic value calculation", "[swaption]") {
 }
 
 // ============================================================================
-// SwapValidator Tests
+// RFQValidator Tests
 // ============================================================================
 
-TEST_CASE("SwapValidator - Valid swap data", "[swap_validator]") {
-    SwapValidator validator;
+TEST_CASE("RFQValidator - Valid RFQ data", "[rfq_validator]") {
+    RFQValidator validator;
 
     std::map<std::string, std::string> data = {
         {"direction", "PAY"},
@@ -386,8 +386,8 @@ TEST_CASE("SwapValidator - Valid swap data", "[swap_validator]") {
     REQUIRE(results.empty());
 }
 
-TEST_CASE("SwapValidator - Invalid direction", "[swap_validator]") {
-    SwapValidator validator;
+TEST_CASE("RFQValidator - Invalid direction", "[rfq_validator]") {
+    RFQValidator validator;
     validator.setStrictMode(true);
 
     std::map<std::string, std::string> data = {
@@ -401,8 +401,8 @@ TEST_CASE("SwapValidator - Invalid direction", "[swap_validator]") {
     REQUIRE(errors.size() > 0);
 }
 
-TEST_CASE("SwapValidator - Notional limits", "[swap_validator]") {
-    SwapValidator validator;
+TEST_CASE("RFQValidator - Notional limits", "[rfq_validator]") {
+    RFQValidator validator;
     validator.setMinNotional(1'000'000.0);
     validator.setMaxNotional(100'000'000.0);
 
@@ -423,8 +423,8 @@ TEST_CASE("SwapValidator - Notional limits", "[swap_validator]") {
     }
 }
 
-TEST_CASE("SwapValidator - Custom rule", "[swap_validator]") {
-    SwapValidator validator;
+TEST_CASE("RFQValidator - Custom rule", "[rfq_validator]") {
+    RFQValidator validator;
 
     // Add custom rule to check for specific client
     validator.addRule("vip_client", [](const auto& data) -> std::optional<ValidationResult> {
