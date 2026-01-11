@@ -310,6 +310,164 @@ class ParsedRFQ:
             self.parsing_notes.append(f"C++ validation error: {str(e)}")
             return None
 
+    def price_with_cpp(self, forward_rate: float = 0.05, volatility: float = 0.20,
+                       time_to_expiry: float = 1.0) -> Optional[Dict[str, Any]]:
+        """
+        Attempt to price the RFQ using C++ pricing components (if available)
+
+        For demonstration purposes, this creates simplified swap structures
+        and calculates indicative values using C++ components.
+
+        Args:
+            forward_rate: Forward rate for pricing (default 5%)
+            volatility: Volatility for option pricing (default 20%)
+            time_to_expiry: Time to expiry in years (default 1.0)
+
+        Returns:
+            Dictionary with pricing information if successful, None otherwise
+        """
+        if not CPP_AVAILABLE:
+            return None
+
+        try:
+            pricing_info = {}
+
+            # Only price IRS-related instruments
+            if self.asset_class not in [AssetClass.IRS, AssetClass.SWAPTION]:
+                return None
+
+            # Extract notional (use quantity if notional not set)
+            notional = self.notional if self.notional else self.quantity
+            if not notional or notional <= 0:
+                return None
+
+            # Extract currency (default to USD)
+            currency = self.notional_currency or "USD"
+            if not currency and self.currency_pair:
+                # Extract from currency pair (e.g., "USD/JPY" -> "USD")
+                currency = self.currency_pair.split('/')[0] if '/' in self.currency_pair else "USD"
+
+            # Extract strike rate (use strike or default to 5%)
+            strike_rate = (self.strike / 100.0) if self.strike else 0.05
+
+            # For IRS: Create a simple vanilla swap and calculate net payment
+            if self.asset_class == AssetClass.IRS:
+                # Create fixed leg (paying fixed)
+                fixed_leg = rfq_cpp.SwapLeg.builder() \
+                    .with_currency(currency) \
+                    .with_notional(notional) \
+                    .with_fixed_rate(strike_rate) \
+                    .with_day_count(rfq_cpp.DayCountConvention.ACT_360) \
+                    .with_frequency(rfq_cpp.PaymentFrequency.SEMI_ANNUAL) \
+                    .build()
+
+                # Create floating leg (receiving SOFR)
+                floating_leg = rfq_cpp.SwapLeg.builder() \
+                    .with_currency(currency) \
+                    .with_notional(notional) \
+                    .with_floating_index(rfq_cpp.FloatingIndex.SOFR) \
+                    .with_day_count(rfq_cpp.DayCountConvention.ACT_360) \
+                    .with_frequency(rfq_cpp.PaymentFrequency.QUARTERLY) \
+                    .build()
+
+                # Create vanilla swap
+                tenor = self.tenor or "5Y"
+                effective_date = self.settlement_date or "2024-01-15"
+
+                swap = rfq_cpp.InterestRateSwap.create_vanilla_swap(
+                    fixed_leg, floating_leg, tenor, effective_date
+                )
+
+                # Calculate net payment for a 180-day period (assuming semi-annual)
+                net_payment = swap.calculate_net_payment(180.0)
+
+                pricing_info = {
+                    "product_type": "Interest Rate Swap",
+                    "notional": notional,
+                    "currency": currency,
+                    "fixed_rate": f"{strike_rate * 100:.2f}%",
+                    "floating_index": "SOFR",
+                    "tenor": tenor,
+                    "net_payment_180d": round(net_payment, 2),
+                    "description": f"Vanilla IRS: Pay {strike_rate*100:.2f}% fixed, receive SOFR"
+                }
+
+                # Add note about pricing
+                note = f"[C++ PRICING] IRS net payment (180d): {currency} {net_payment:,.2f}"
+                if note not in self.parsing_notes:
+                    self.parsing_notes.append(note)
+
+            # For Swaption: Create swaption and price using Black model
+            elif self.asset_class == AssetClass.SWAPTION:
+                # Create underlying swap legs
+                fixed_leg = rfq_cpp.SwapLeg.builder() \
+                    .with_currency(currency) \
+                    .with_notional(notional) \
+                    .with_fixed_rate(strike_rate) \
+                    .with_day_count(rfq_cpp.DayCountConvention.ACT_360) \
+                    .with_frequency(rfq_cpp.PaymentFrequency.SEMI_ANNUAL) \
+                    .build()
+
+                floating_leg = rfq_cpp.SwapLeg.builder() \
+                    .with_currency(currency) \
+                    .with_notional(notional) \
+                    .with_floating_index(rfq_cpp.FloatingIndex.SOFR) \
+                    .with_day_count(rfq_cpp.DayCountConvention.ACT_360) \
+                    .with_frequency(rfq_cpp.PaymentFrequency.QUARTERLY) \
+                    .build()
+
+                # Create underlying swap
+                tenor = self.tenor or "5Y"
+                effective_date = self.settlement_date or "2024-01-15"
+                underlying_swap = rfq_cpp.InterestRateSwap.create_vanilla_swap(
+                    fixed_leg, floating_leg, tenor, effective_date
+                )
+
+                # Create swaption (assume payer swaption if BUY, receiver if SELL)
+                swaption_type = rfq_cpp.SwaptionType.PAYER if self.direction == Direction.BUY else rfq_cpp.SwaptionType.RECEIVER
+                expiry_date = "2024-12-15"  # Default expiry
+
+                swaption = rfq_cpp.Swaption.create_european(
+                    swaption_type,
+                    underlying_swap,
+                    expiry_date,
+                    strike_rate
+                )
+
+                # Price using Black model
+                black_price = rfq_cpp.SwaptionPricer.black_price(
+                    swaption,
+                    forward_rate,
+                    volatility,
+                    time_to_expiry
+                )
+
+                pricing_info = {
+                    "product_type": "Swaption",
+                    "type": "Payer" if swaption_type == rfq_cpp.SwaptionType.PAYER else "Receiver",
+                    "exercise_style": "European",
+                    "notional": notional,
+                    "currency": currency,
+                    "strike_rate": f"{strike_rate * 100:.2f}%",
+                    "tenor": tenor,
+                    "expiry": expiry_date,
+                    "black_price": round(black_price, 2),
+                    "forward_rate": f"{forward_rate * 100:.2f}%",
+                    "volatility": f"{volatility * 100:.0f}%",
+                    "description": f"{'Payer' if swaption_type == rfq_cpp.SwaptionType.PAYER else 'Receiver'} swaption on {tenor} IRS"
+                }
+
+                # Add note about pricing
+                note = f"[C++ PRICING] Swaption Black price: {currency} {black_price:,.2f} (vol={volatility*100:.0f}%, fwd={forward_rate*100:.1f}%)"
+                if note not in self.parsing_notes:
+                    self.parsing_notes.append(note)
+
+            return pricing_info if pricing_info else None
+
+        except Exception as e:
+            self.parsing_notes.append(f"C++ pricing error: {str(e)}")
+            return None
+
 
 # =============================================================================
 # MOCK MISTRAL CLIENT (for testing)

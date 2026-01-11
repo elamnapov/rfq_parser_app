@@ -10,7 +10,7 @@ import sys
 import time
 from datetime import datetime
 
-from rfq_parser import RFQParser, Direction, AssetClass, Urgency
+from rfq_parser import RFQParser, Direction, AssetClass, Urgency, CPP_AVAILABLE
 
 # Page configuration
 st.set_page_config(
@@ -126,7 +126,9 @@ def main():
             "FX Forward": "Need a price on 5M GBP/USD 3M forward",
             "Two-Way": "Can I get a two-way on 50MM USD/JPY?",
             "Urgent Request": "URGENT: Sell 25MM EUR/USD ASAP!",
-            "Complex RFQ": "Hi, looking to buy 100 MIO EURUSD 6 months outright, value date IMM Dec"
+            "Complex RFQ": "Hi, looking to buy 100 MIO EURUSD 6 months outright, value date IMM Dec",
+            "IRS (C++ Pricing)": "Buy 10MM USD IRS 5Y paying fixed at 5.25%",
+            "Swaption (C++ Pricing)": "Sell 50MM USD swaption 3Y strike 4.5%"
         }
         
         selected_sample = st.selectbox(
@@ -164,6 +166,14 @@ def main():
             start_time = time.time()
             result = parser.parse(rfq_text)
             parse_time = (time.time() - start_time) * 1000  # ms
+
+            # Attempt to price with C++ if available
+            pricing_info = None
+            if CPP_AVAILABLE:
+                try:
+                    pricing_info = result.price_with_cpp()
+                except Exception as e:
+                    st.warning(f"Pricing error: {str(e)}")
         
         with output_container:
             # Key metrics in cards
@@ -229,14 +239,53 @@ def main():
                 st.subheader("📋 JSON Output")
                 st.json(result.to_dict())
             
+            # C++ Pricing Information
+            if pricing_info:
+                st.divider()
+                st.subheader("💰 C++ Pricing")
+
+                # Display pricing details in a nice format
+                price_cols = st.columns([2, 1])
+
+                with price_cols[0]:
+                    st.markdown(f"**Product:** {pricing_info.get('product_type', 'N/A')}")
+                    st.markdown(f"**Description:** {pricing_info.get('description', 'N/A')}")
+
+                    if pricing_info.get('product_type') == 'Interest Rate Swap':
+                        st.markdown(f"**Notional:** {pricing_info['currency']} {pricing_info['notional']:,.0f}")
+                        st.markdown(f"**Fixed Rate:** {pricing_info['fixed_rate']}")
+                        st.markdown(f"**Floating Index:** {pricing_info['floating_index']}")
+                        st.markdown(f"**Tenor:** {pricing_info['tenor']}")
+                        st.markdown(f"**Net Payment (180d):** {pricing_info['currency']} {pricing_info['net_payment_180d']:,.2f}")
+
+                    elif pricing_info.get('product_type') == 'Swaption':
+                        st.markdown(f"**Type:** {pricing_info['type']} Swaption")
+                        st.markdown(f"**Exercise:** {pricing_info['exercise_style']}")
+                        st.markdown(f"**Notional:** {pricing_info['currency']} {pricing_info['notional']:,.0f}")
+                        st.markdown(f"**Strike Rate:** {pricing_info['strike_rate']}")
+                        st.markdown(f"**Tenor:** {pricing_info['tenor']}")
+                        st.markdown(f"**Expiry:** {pricing_info['expiry']}")
+                        st.markdown(f"**Black Price:** {pricing_info['currency']} {pricing_info['black_price']:,.2f}")
+
+                with price_cols[1]:
+                    # Display pricing parameters for swaptions
+                    if pricing_info.get('product_type') == 'Swaption':
+                        st.markdown("**Pricing Inputs:**")
+                        st.markdown(f"• Forward: {pricing_info['forward_rate']}")
+                        st.markdown(f"• Volatility: {pricing_info['volatility']}")
+                        st.info("💡 Using simplified Black-76 model with default market parameters")
+                    elif pricing_info.get('product_type') == 'Interest Rate Swap':
+                        st.info("💡 Net payment calculated for a 180-day period using C++ swap engine")
+
             # Parsing notes
             if result.parsing_notes:
                 st.subheader("📝 Parsing Notes")
                 for note in result.parsing_notes:
                     st.info(note)
-            
+
             # Performance info
-            st.caption(f"⏱️ Parsed in {parse_time:.1f}ms | Mode: {'LLM' if use_llm else 'Regex'}")
+            cpp_status = "✓ C++ Enabled" if CPP_AVAILABLE else "Python-only"
+            st.caption(f"⏱️ Parsed in {parse_time:.1f}ms | Mode: {'LLM' if use_llm else 'Regex'} | {cpp_status}")
     
     elif parse_button:
         st.warning("Please enter an RFQ message to parse.")

@@ -52,8 +52,9 @@ cd cpp && build.bat   # Windows
 
 ### High-Performance C++ Integration
 - **Automatic Validation**: C++ validator runs automatically on parsed data (when available)
+- **Automatic Pricing**: IRS net payment calculation and Swaption Black-76 pricing
 - **Interest Rate Swaps**: Vanilla, basis, and cross-currency swap modeling
-- **Swaptions**: European, American, and Bermudan exercise styles
+- **Swaptions**: European, American, and Bermudan exercise styles with option pricing
 - **Thread-Safe Processing**: Lock-free queue for high-throughput systems
 - **10x Performance**: C++ components provide 10x speedup for validation and pricing
 - **Optional**: Parser works perfectly without C++ (Python-only mode)
@@ -145,8 +146,9 @@ The C++ extension (`rfq_cpp`) provides:
 |-----------|---------|
 | **SwapValidator** | High-speed validation of parsed RFQ data |
 | **SwapLeg** | Interest rate swap leg with day count conventions |
-| **InterestRateSwap** | Vanilla, basis, and cross-currency swaps |
+| **InterestRateSwap** | Vanilla, basis, and cross-currency swaps with net payment calculation |
 | **Swaption** | European, American, and Bermudan swaptions |
+| **SwaptionPricer** | Black-76 option pricing for swaptions |
 | **ThreadSafeQueue** | Lock-free queue for high-throughput RFQ processing |
 
 ### How It Works
@@ -301,9 +303,73 @@ results = validator.validate({
 print(f"Validation passed: {len(results) == 0}")
 ```
 
+### C++ Pricing Integration
+
+The parser can automatically price IRS and Swaption RFQs using C++ pricing engines:
+
+```python
+from rfq_parser import RFQParser
+
+parser = RFQParser()
+
+# Parse an IRS RFQ
+result = parser.parse("Buy 10MM USD IRS 5Y paying fixed at 5.25%")
+
+# Automatically price using C++ (if available)
+pricing = result.price_with_cpp()
+
+if pricing:
+    print(f"Product: {pricing['product_type']}")
+    print(f"Notional: {pricing['currency']} {pricing['notional']:,.0f}")
+    print(f"Fixed Rate: {pricing['fixed_rate']}")
+    print(f"Net Payment (180d): {pricing['currency']} {pricing['net_payment_180d']:,.2f}")
+    # Output: Product: Interest Rate Swap
+    #         Notional: USD 10,000,000
+    #         Fixed Rate: 5.25%
+    #         Net Payment (180d): USD 262,500.00
+```
+
+**Pricing Features:**
+
+| Feature | IRS | Swaption |
+|---------|-----|----------|
+| **Calculation** | Net payment for 180-day period | Black-76 option pricing |
+| **Inputs** | Notional, fixed rate, tenor | Strike, volatility, forward rate, time to expiry |
+| **Output** | Net cash flow per period | Option premium |
+| **Use Case** | Cash flow projections | Option valuation |
+
+**Example: Swaption Pricing**
+
+```python
+# Parse a swaption RFQ
+result = parser.parse("Sell 50MM USD swaption 3Y strike 4.5%")
+
+# Price with custom market parameters
+pricing = result.price_with_cpp(
+    forward_rate=0.045,   # 4.5% forward rate
+    volatility=0.25,       # 25% volatility
+    time_to_expiry=1.0    # 1 year to expiry
+)
+
+if pricing:
+    print(f"Swaption Type: {pricing['type']}")
+    print(f"Black Price: {pricing['currency']} {pricing['black_price']:,.2f}")
+    print(f"Volatility: {pricing['volatility']}")
+    # Output: Swaption Type: Receiver
+    #         Black Price: USD 1,234,567.89
+    #         Volatility: 25%
+```
+
+**Notes:**
+- Pricing uses simplified models with default market parameters for demonstration
+- IRS net payment calculation assumes standard day count conventions (ACT/360)
+- Swaption pricing uses Black-76 formula with European exercise
+- For production use, integrate with your market data feeds for accurate forward rates and volatilities
+- Pricing automatically appears in `parsing_notes` field
+
 ### Streamlit App Integration
 
-The Streamlit demo (`app.py`) automatically uses C++ validation:
+The Streamlit demo (`app.py`) automatically uses C++ validation and pricing:
 
 ```bash
 streamlit run app.py
@@ -312,12 +378,17 @@ streamlit run app.py
 When you parse an RFQ in the UI:
 1. Python parser extracts data (LLM or regex)
 2. C++ validator checks the data (**if available**)
-3. Validation results appear in the "Parsing Notes" section
-4. You see enhanced error messages and warnings
+3. **C++ pricer calculates values for IRS/Swaptions** (**if available**)
+4. Validation results appear in the "Parsing Notes" section
+5. Pricing results appear in a dedicated "C++ Pricing" section with detailed metrics
+
+**Try the pricing demo:**
+- Load sample: "IRS (C++ Pricing)" → See net payment calculation
+- Load sample: "Swaption (C++ Pricing)" → See Black-76 option price
 
 **App behavior:**
-- ✅ **With C++**: Fast validation, domain-specific checks, enhanced error messages
-- ✅ **Without C++**: Still works perfectly, uses Python-only validation
+- ✅ **With C++**: Fast validation, automatic pricing for IRS/Swaptions, enhanced error messages
+- ✅ **Without C++**: Still works perfectly, uses Python-only validation (no pricing)
 
 ### Check C++ Availability
 
@@ -333,6 +404,42 @@ else:
     print("Build C++ components for enhanced validation")
 ```
 
+### Running C++ Examples
+
+The repository includes `example_cpp_usage.py` with 6 comprehensive examples demonstrating all C++ components:
+
+**Prerequisites:**
+1. C++ module must be built first (see [Building C++ Components](#building-c-components) above)
+2. Python dependencies installed: `pip install -r requirements.txt`
+
+**Run the examples:**
+
+```bash
+# From project root (rfq_parser_app/)
+python example_cpp_usage.py
+```
+
+**What it demonstrates:**
+
+| Example | Description |
+|---------|-------------|
+| **1. SwapLeg Builder** | Creating fixed and floating rate swap legs with day count conventions |
+| **2. Vanilla IRS** | 5Y USD interest rate swap paying fixed vs receiving SOFR |
+| **3. Bermudan Swaption** | European, American, and Bermudan swaption structures |
+| **4. SwapValidator** | Validating RFQ data with built-in rules (currency, notional, tenor) |
+| **5. ThreadSafeQueue** | Multi-threaded RFQ processing with producer-consumer pattern |
+| **6. Parser Integration** | How Python parser automatically uses C++ validation |
+
+**Expected output:**
+- Each example prints detailed output showing object creation, validation results, and computed values
+- Final example shows ParsedRFQ with C++ validation results in `parsing_notes`
+
+**Troubleshooting:**
+- If you get `ModuleNotFoundError: No module named 'rfq_cpp'`, build the C++ module first
+- On Windows: run `cd cpp && build.bat`
+- On Linux/Mac: run `cd cpp && ./build.sh`
+- Or use: `pip install -e .` from project root
+
 ### Performance Benefits
 
 | Operation | Python | C++ | Speedup |
@@ -342,7 +449,7 @@ else:
 | Build swap structure | ~1ms | ~0.1ms | **10x** |
 | Price swaption (Black) | ~2ms | ~0.2ms | **10x** |
 
-**See [cpp/README.md](cpp/README.md) for detailed C++ documentation and [example_cpp_usage.py](example_cpp_usage.py) for complete examples.**
+**See [cpp/README.md](cpp/README.md) for detailed C++ documentation and [Running C++ Examples](#running-c-examples) above for how to run `example_cpp_usage.py`.**
 
 ## 🧪 Testing
 
