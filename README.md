@@ -248,7 +248,7 @@ The C++ extension (`rfq_cpp`) provides:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  User Input: "Buy 10MM USD IRS 5Y paying fixed at 5.25%"   │
+│  User Input: "Buy 10MM USD IRS 5Y paying fixed at 5.25%"    |
 └────────────────────────┬────────────────────────────────────┘
                          │
                          ▼
@@ -519,14 +519,21 @@ python example_cpp_usage.py
 |---------|-------------|
 | **1. SwapLeg Builder** | Creating fixed and floating rate swap legs with day count conventions |
 | **2. Vanilla IRS** | 5Y USD interest rate swap paying fixed vs receiving SOFR |
-| **3. Bermudan Swaption** | European, American, and Bermudan swaption structures |
+| **3. Bermudan Swaption** | ⚠️ Shows pybind11 holder type limitation (see note below) |
 | **4. SwapValidator** | Validating RFQ data with built-in rules (currency, notional, tenor) |
 | **5. ThreadSafeQueue** | Multi-threaded RFQ processing with producer-consumer pattern |
 | **6. Parser Integration** | How Python parser automatically uses C++ validation |
 
 **Expected output:**
 - Each example prints detailed output showing object creation, validation results, and computed values
+- Example 3 demonstrates the holder type limitation with a clear error message
 - Final example shows ParsedRFQ with C++ validation results in `parsing_notes`
+
+**Note about Example 3 (Swaption):**
+- The C++ `Swaption` class requires `shared_ptr<InterestRateSwap>`, but factory methods return `unique_ptr`
+- This is a pybind11 limitation when converting between holder types
+- The example gracefully handles this and explains the workaround
+- **Solution**: Use Python Black-76 implementation (see `price_with_cpp()` method) which provides full swaption pricing
 
 **Troubleshooting:**
 - If you get `ModuleNotFoundError: No module named 'rfq_cpp'`, build the C++ module first

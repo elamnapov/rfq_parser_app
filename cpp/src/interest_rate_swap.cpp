@@ -159,7 +159,7 @@ double InterestRateSwap::calculateNetPayment(double period_days) const {
         } else {
             // For floating, assume current index rate (simplified)
             // In reality, would look up actual fixing
-            double assumed_rate = 0.05; // 5% placeholder
+            double assumed_rate = 0.045; // 4.5% placeholder (different from typical fixed to show net payment)
             double spread = leg.spread().value_or(0.0) / 10000.0; // bps to decimal
             return leg.notional() * (assumed_rate + spread) * year_frac;
         }

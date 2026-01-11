@@ -150,9 +150,13 @@ std::optional<ValidationResult> SwapValidator::validateCurrency(
     }
 
     if (!currency) {
-        return ValidationResult(ValidationSeverity::WARNING, "currency",
-                              "Currency not specified",
-                              "Default currency may be assumed");
+        // Only warn in strict mode - otherwise allow missing currency
+        if (strict_mode_) {
+            return ValidationResult(ValidationSeverity::WARNING, "currency",
+                                  "Currency not specified",
+                                  "Default currency may be assumed");
+        }
+        return std::nullopt;
     }
 
     // Valid 3-letter ISO currency codes
