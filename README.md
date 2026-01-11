@@ -279,7 +279,6 @@ rfq_parser_app/
 ├── example_cpp_usage.py    # C++ integration examples
 ├── setup.py                # Installation with C++ extension
 ├── README.md               # This file
-├── ROADMAP.md              # Development roadmap
 ├── requirements.txt        # Dependencies
 ├── screenshots/            # Demo screenshots
 └── cpp/                    # C++ components (see cpp/README.md)
