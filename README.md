@@ -268,18 +268,6 @@ from rfq_parser import (
 )
 ```
 
-## 🗺️ Roadmap
-
-See [ROADMAP.md](ROADMAP.md) for the full development plan.
-
-| Phase | Status | Description |
-|-------|--------|-------------|
-| Phase 1: Core Parser | ✅ Complete | Parser, models, regex fallback |
-| Phase 2: Visual Demo | ✅ Complete | Streamlit app, batch processing |
-| Phase 3: API Service | 📋 Planned | FastAPI, Docker |
-| Phase 4: Advanced Features | 📋 Planned | Voice-to-RFQ, multi-asset |
-| Phase 5: Enterprise | 📋 Planned | Monitoring, audit, multi-tenant |
-
 ## 📁 Project Structure
 
 ```
