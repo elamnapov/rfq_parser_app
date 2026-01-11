@@ -51,6 +51,7 @@ class AssetClass(Enum):
     FX_OPTION = "FX_OPTION"
     BOND = "BOND"
     IRS = "INTEREST_RATE_SWAP"
+    SWAPTION = "SWAPTION"
     CDS = "CREDIT_DEFAULT_SWAP"
     EQUITY = "EQUITY"
     COMMODITY = "COMMODITY"
@@ -397,54 +398,63 @@ class ParsedRFQ:
                 if note not in self.parsing_notes:
                     self.parsing_notes.append(note)
 
-            # For Swaption: Create swaption and price using Black model
+            # For Swaption: Use simplified Black-76 pricing
+            # Note: Full C++ swaption pricing has holder type conflicts (unique_ptr vs shared_ptr)
+            # Using simplified Python implementation of Black-76 for demonstration
             elif self.asset_class == AssetClass.SWAPTION:
-                # Create underlying swap legs
-                fixed_leg = rfq_cpp.SwapLeg.builder() \
-                    .with_currency(currency) \
-                    .with_notional(notional) \
-                    .with_fixed_rate(strike_rate) \
-                    .with_day_count(rfq_cpp.DayCountConvention.ACT_360) \
-                    .with_frequency(rfq_cpp.PaymentFrequency.SEMI_ANNUAL) \
-                    .build()
+                import math
 
-                floating_leg = rfq_cpp.SwapLeg.builder() \
-                    .with_currency(currency) \
-                    .with_notional(notional) \
-                    .with_floating_index(rfq_cpp.FloatingIndex.SOFR) \
-                    .with_day_count(rfq_cpp.DayCountConvention.ACT_360) \
-                    .with_frequency(rfq_cpp.PaymentFrequency.QUARTERLY) \
-                    .build()
-
-                # Create underlying swap
                 tenor = self.tenor or "5Y"
-                effective_date = self.settlement_date or "2024-01-15"
-                underlying_swap = rfq_cpp.InterestRateSwap.create_vanilla_swap(
-                    fixed_leg, floating_leg, tenor, effective_date
-                )
-
-                # Create swaption (assume payer swaption if BUY, receiver if SELL)
-                swaption_type = rfq_cpp.SwaptionType.PAYER if self.direction == Direction.BUY else rfq_cpp.SwaptionType.RECEIVER
                 expiry_date = "2024-12-15"  # Default expiry
 
-                swaption = rfq_cpp.Swaption.create_european(
-                    swaption_type,
-                    underlying_swap,
-                    expiry_date,
-                    strike_rate
-                )
+                # Determine swaption type
+                swaption_type = "Payer" if self.direction == Direction.BUY else "Receiver"
 
-                # Price using Black model
-                black_price = rfq_cpp.SwaptionPricer.black_price(
-                    swaption,
-                    forward_rate,
-                    volatility,
-                    time_to_expiry
-                )
+                # Simplified Black-76 formula
+                # Price = Notional * Annuity * [F * N(d1) - K * N(d2)] for payer
+                # where d1 = [ln(F/K) + 0.5*vol^2*T] / (vol*sqrt(T))
+                #       d2 = d1 - vol*sqrt(T)
+
+                F = forward_rate  # Forward rate
+                K = strike_rate   # Strike rate
+                T = time_to_expiry
+                sigma = volatility
+
+                # Annuity factor (simplified: assume 2 payments per year for tenor)
+                tenor_years = 5.0  # Default to 5Y
+                if self.tenor:
+                    if 'Y' in self.tenor:
+                        tenor_years = float(self.tenor.replace('Y', ''))
+                    elif 'M' in self.tenor:
+                        tenor_years = float(self.tenor.replace('M', '')) / 12.0
+
+                annuity = tenor_years / 2.0  # Simplified annuity
+
+                # Black-76 pricing
+                if sigma > 0 and T > 0 and K > 0:
+                    d1 = (math.log(F / K) + 0.5 * sigma**2 * T) / (sigma * math.sqrt(T))
+                    d2 = d1 - sigma * math.sqrt(T)
+
+                    # Normal CDF approximation
+                    def norm_cdf(x):
+                        return 0.5 * (1.0 + math.erf(x / math.sqrt(2.0)))
+
+                    if swaption_type == "Payer":
+                        intrinsic = F * norm_cdf(d1) - K * norm_cdf(d2)
+                    else:  # Receiver
+                        intrinsic = K * norm_cdf(-d2) - F * norm_cdf(-d1)
+
+                    black_price = notional * annuity * intrinsic
+                else:
+                    # Intrinsic value only
+                    if swaption_type == "Payer":
+                        black_price = max(0, notional * annuity * (F - K))
+                    else:
+                        black_price = max(0, notional * annuity * (K - F))
 
                 pricing_info = {
                     "product_type": "Swaption",
-                    "type": "Payer" if swaption_type == rfq_cpp.SwaptionType.PAYER else "Receiver",
+                    "type": swaption_type,
                     "exercise_style": "European",
                     "notional": notional,
                     "currency": currency,
@@ -454,18 +464,26 @@ class ParsedRFQ:
                     "black_price": round(black_price, 2),
                     "forward_rate": f"{forward_rate * 100:.2f}%",
                     "volatility": f"{volatility * 100:.0f}%",
-                    "description": f"{'Payer' if swaption_type == rfq_cpp.SwaptionType.PAYER else 'Receiver'} swaption on {tenor} IRS"
+                    "description": f"{swaption_type} swaption on {tenor} IRS"
                 }
 
                 # Add note about pricing
-                note = f"[C++ PRICING] Swaption Black price: {currency} {black_price:,.2f} (vol={volatility*100:.0f}%, fwd={forward_rate*100:.1f}%)"
+                note = f"[PYTHON PRICING] Swaption Black-76 price: {currency} {black_price:,.2f} (vol={volatility*100:.0f}%, fwd={forward_rate*100:.1f}%)"
                 if note not in self.parsing_notes:
                     self.parsing_notes.append(note)
+
+                # Add technical note
+                tech_note = "[INFO] Swaption priced using Python Black-76 (C++ holder type limitation)"
+                if tech_note not in self.parsing_notes:
+                    self.parsing_notes.append(tech_note)
 
             return pricing_info if pricing_info else None
 
         except Exception as e:
+            import traceback
+            error_details = traceback.format_exc()
             self.parsing_notes.append(f"C++ pricing error: {str(e)}")
+            self.parsing_notes.append(f"Error details: {error_details[:500]}")  # First 500 chars
             return None
 
 
@@ -858,6 +876,38 @@ Include a "confidence_score" (0.0-1.0) and "parsing_notes" array with any clarif
             if parsed.asset_class == AssetClass.FX_SPOT:
                 parsed.asset_class = AssetClass.FX_FORWARD
         
+        # Asset class detection for IRS and Swaptions
+        if any(word in text_upper for word in ['SWAPTION', 'SWAP OPTION']):
+            parsed.asset_class = AssetClass.SWAPTION
+            # Extract strike if present
+            strike_pattern = r'\bSTRIKE\s+(\d+(?:\.\d+)?)\s*%?'
+            strike_match = re.search(strike_pattern, text_upper)
+            if strike_match:
+                parsed.strike = float(strike_match.group(1))
+            # Extract currency for IRS/Swaption
+            for ccy in valid_ccys:
+                if f' {ccy} ' in f' {text_upper} ' or text_upper.startswith(ccy) or text_upper.endswith(ccy):
+                    parsed.notional_currency = ccy
+                    break
+            # Set notional from quantity
+            if parsed.quantity:
+                parsed.notional = parsed.quantity
+        elif any(word in text_upper for word in ['IRS', 'INTEREST RATE SWAP', 'SWAP']):
+            parsed.asset_class = AssetClass.IRS
+            # Extract fixed rate if present
+            rate_pattern = r'(?:FIXED|PAYING|AT)\s+(\d+(?:\.\d+)?)\s*%'
+            rate_match = re.search(rate_pattern, text_upper)
+            if rate_match:
+                parsed.strike = float(rate_match.group(1))
+            # Extract currency for IRS
+            for ccy in valid_ccys:
+                if f' {ccy} ' in f' {text_upper} ' or text_upper.startswith(ccy) or text_upper.endswith(ccy):
+                    parsed.notional_currency = ccy
+                    break
+            # Set notional from quantity
+            if parsed.quantity:
+                parsed.notional = parsed.quantity
+
         # Urgency detection
         if any(word in text_upper for word in ['URGENT', 'ASAP', 'NOW', 'IMMEDIATELY']):
             parsed.urgency = Urgency.IMMEDIATE
@@ -901,6 +951,7 @@ Include a "confidence_score" (0.0-1.0) and "parsing_notes" array with any clarif
             'BOND': AssetClass.BOND,
             'INTEREST_RATE_SWAP': AssetClass.IRS,
             'IRS': AssetClass.IRS,
+            'SWAPTION': AssetClass.SWAPTION,
             'CREDIT_DEFAULT_SWAP': AssetClass.CDS,
             'CDS': AssetClass.CDS,
             'EQUITY': AssetClass.EQUITY,

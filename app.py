@@ -239,10 +239,11 @@ def main():
                 st.subheader("📋 JSON Output")
                 st.json(result.to_dict())
             
-            # C++ Pricing Information
+            # Pricing Information
             if pricing_info:
                 st.divider()
-                st.subheader("💰 C++ Pricing")
+                pricing_label = "💰 C++ Pricing" if pricing_info.get('product_type') == 'Interest Rate Swap' else "💰 Pricing"
+                st.subheader(pricing_label)
 
                 # Display pricing details in a nice format
                 price_cols = st.columns([2, 1])
@@ -273,7 +274,7 @@ def main():
                         st.markdown("**Pricing Inputs:**")
                         st.markdown(f"• Forward: {pricing_info['forward_rate']}")
                         st.markdown(f"• Volatility: {pricing_info['volatility']}")
-                        st.info("💡 Using simplified Black-76 model with default market parameters")
+                        st.info("💡 Using Python Black-76 formula with default market parameters (C++ version has holder type limitations)")
                     elif pricing_info.get('product_type') == 'Interest Rate Swap':
                         st.info("💡 Net payment calculated for a 180-day period using C++ swap engine")
 

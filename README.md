@@ -40,6 +40,99 @@ cd cpp && build.bat   # Windows
 
 **See [Python-C++ Integration](#-python-c-integration) section below for detailed setup.**
 
+### Running with C++ on Windows 11 (Recommended: WSL)
+
+The easiest way to use C++ components on Windows 11 is through **Windows Subsystem for Linux (WSL)**. This approach:
+- ✅ Avoids Windows C++ build complexity (CMake, Visual Studio, etc.)
+- ✅ Uses the same Linux build process as production servers
+- ✅ Allows you to access the app from your Windows browser
+
+**Step 1: Install WSL (if not already installed)**
+
+Open PowerShell as Administrator and run:
+
+```powershell
+wsl --install
+```
+
+Restart your computer when prompted. WSL will install Ubuntu by default.
+
+**Step 2: Set up Python and dependencies in WSL**
+
+Open your **WSL terminal** (search for "Ubuntu" in Start menu):
+
+```bash
+# Update package list
+sudo apt update
+
+# Install Python and pip
+sudo apt install python3-pip -y
+
+# Navigate to your project (Windows drives are mounted at /mnt/)
+cd /mnt/c/Users/YOUR_USERNAME/path/to/rfq_parser_app
+
+# Install Python dependencies
+pip3 install -r requirements.txt
+```
+
+**Step 3: Build C++ components in WSL**
+
+```bash
+# From project root
+cd cpp
+chmod +x build.sh
+./build.sh
+
+# Verify C++ module is available
+cd ..
+python3 -c "from rfq_parser import CPP_AVAILABLE; print(f'C++ Available: {CPP_AVAILABLE}')"
+# Should output: C++ Available: True
+```
+
+**Step 4: Run Streamlit in WSL**
+
+```bash
+# From project root
+python3 -m streamlit run app.py
+```
+
+You'll see output like:
+
+```
+  You can now view your Streamlit app in your browser.
+
+  Local URL: http://localhost:8501
+  Network URL: http://172.x.x.x:8501
+```
+
+**Step 5: Open in Windows browser**
+
+Open **http://localhost:8501** in your Windows browser (Chrome, Edge, Firefox, etc.).
+
+**Step 6: Try the C++ pricing demos**
+
+1. In the sidebar, select sample: **"IRS (C++ Pricing)"**
+2. Click **"🔍 Parse RFQ"**
+3. You should see the **💰 C++ Pricing** section with net payment calculation!
+
+Try **"Swaption (C++ Pricing)"** to see Black-76 option pricing.
+
+**Troubleshooting:**
+
+| Issue | Solution |
+|-------|----------|
+| `streamlit: command not found` | Use `python3 -m streamlit run app.py` instead |
+| `CPP_AVAILABLE: False` | Rebuild C++ with `cd cpp && ./build.sh` |
+| Port 8501 already in use | Kill existing: `lsof -ti:8501 \| xargs kill -9` or use different port: `python3 -m streamlit run app.py --server.port 8502` |
+| Browser shows "can't reach page" | Check firewall, try Network URL instead of localhost |
+
+**Why WSL instead of native Windows?**
+
+| Approach | Pros | Cons |
+|----------|------|------|
+| **WSL (Recommended)** | ✅ Simple build process<br>✅ Same as Linux servers<br>✅ No Visual Studio needed<br>✅ Fast compilation | ⚠️ Requires WSL installation |
+| **Native Windows** | ✅ No WSL needed | ❌ Requires CMake + Visual Studio<br>❌ Complex setup<br>❌ Longer build times |
+
 ## 💡 Features
 
 ### Core Parsing
@@ -333,6 +426,7 @@ if pricing:
 
 | Feature | IRS | Swaption |
 |---------|-----|----------|
+| **Engine** | C++ | Python (Black-76) |
 | **Calculation** | Net payment for 180-day period | Black-76 option pricing |
 | **Inputs** | Notional, fixed rate, tenor | Strike, volatility, forward rate, time to expiry |
 | **Output** | Net cash flow per period | Option premium |
@@ -361,9 +455,9 @@ if pricing:
 ```
 
 **Notes:**
+- **IRS Pricing**: Uses C++ swap engine for net payment calculation with ACT/360 day count conventions
+- **Swaption Pricing**: Uses Python Black-76 implementation (C++ version has pybind11 holder type limitations)
 - Pricing uses simplified models with default market parameters for demonstration
-- IRS net payment calculation assumes standard day count conventions (ACT/360)
-- Swaption pricing uses Black-76 formula with European exercise
 - For production use, integrate with your market data feeds for accurate forward rates and volatilities
 - Pricing automatically appears in `parsing_notes` field
 
