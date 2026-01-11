@@ -456,7 +456,7 @@ if pricing:
 
 **Notes:**
 - **IRS Pricing**: Uses C++ swap engine for net payment calculation with ACT/360 day count conventions
-- **Swaption Pricing**: Uses Python Black-76 implementation (C++ version has pybind11 holder type limitations)
+- **Swaption Pricing**: Uses C++ Black-76 pricer for European swaption valuation
 - Pricing uses simplified models with default market parameters for demonstration
 - For production use, integrate with your market data feeds for accurate forward rates and volatilities
 - Pricing automatically appears in `parsing_notes` field
@@ -519,21 +519,15 @@ python example_cpp_usage.py
 |---------|-------------|
 | **1. SwapLeg Builder** | Creating fixed and floating rate swap legs with day count conventions |
 | **2. Vanilla IRS** | 5Y USD interest rate swap paying fixed vs receiving SOFR |
-| **3. Bermudan Swaption** | ⚠️ Shows pybind11 holder type limitation (see note below) |
+| **3. Bermudan Swaption** | 10Y EUR swaption with multiple exercise dates using C++ pricing |
 | **4. RFQValidator** | Validating RFQ data with built-in rules (currency, notional, tenor) for all instrument types |
 | **5. ThreadSafeQueue** | Multi-threaded RFQ processing with producer-consumer pattern |
 | **6. Parser Integration** | How Python parser automatically uses C++ validation |
 
 **Expected output:**
 - Each example prints detailed output showing object creation, validation results, and computed values
-- Example 3 demonstrates the holder type limitation with a clear error message
+- Example 3 creates a Bermudan swaption and demonstrates exercise date logic
 - Final example shows ParsedRFQ with C++ validation results in `parsing_notes`
-
-**Note about Example 3 (Swaption):**
-- The C++ `Swaption` class requires `shared_ptr<InterestRateSwap>`, but factory methods return `unique_ptr`
-- This is a pybind11 limitation when converting between holder types
-- The example gracefully handles this and explains the workaround
-- **Solution**: Use Python Black-76 implementation (see `price_with_cpp()` method) which provides full swaption pricing
 
 **Troubleshooting:**
 - If you get `ModuleNotFoundError: No module named 'rfq_cpp'`, build the C++ module first

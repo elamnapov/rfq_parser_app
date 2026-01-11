@@ -274,7 +274,7 @@ def main():
                         st.markdown("**Pricing Inputs:**")
                         st.markdown(f"• Forward: {pricing_info['forward_rate']}")
                         st.markdown(f"• Volatility: {pricing_info['volatility']}")
-                        st.info("💡 Using Python Black-76 formula with default market parameters (C++ version has holder type limitations)")
+                        st.info("💡 Using C++ Black-76 pricer with default market parameters")
                     elif pricing_info.get('product_type') == 'Interest Rate Swap':
                         st.info("💡 Net payment calculated for a 180-day period using C++ swap engine")
 
