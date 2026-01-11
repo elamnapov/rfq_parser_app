@@ -219,6 +219,56 @@ namespace {
     }
 }
 
+double SwaptionPricer::calculateAnnuity(
+    const InterestRateSwap& swap,
+    double discount_rate) {
+
+    // Get swap tenor in years
+    std::string tenor_str = swap.tenor();
+    int tenor_months = swap_utils::tenorToMonths(tenor_str);
+    if (tenor_months == 0) {
+        return 1.0; // Fallback
+    }
+    double tenor_years = tenor_months / 12.0;
+
+    // Determine payment frequency from the fixed leg (typically semi-annual)
+    const SwapLeg& fixed_leg = swap.payLeg().isFixed() ? swap.payLeg() : swap.receiveLeg();
+
+    int payments_per_year = 0;
+    switch (fixed_leg.frequency()) {
+        case PaymentFrequency::ANNUAL:
+            payments_per_year = 1;
+            break;
+        case PaymentFrequency::SEMI_ANNUAL:
+            payments_per_year = 2;
+            break;
+        case PaymentFrequency::QUARTERLY:
+            payments_per_year = 4;
+            break;
+        case PaymentFrequency::MONTHLY:
+            payments_per_year = 12;
+            break;
+    }
+
+    if (payments_per_year == 0) {
+        return 1.0; // Fallback
+    }
+
+    // Calculate number of payments
+    int num_payments = static_cast<int>(tenor_years * payments_per_year);
+    double payment_period = 1.0 / payments_per_year; // Time between payments in years
+
+    // Calculate annuity as sum of discounted payment periods
+    double annuity = 0.0;
+    for (int i = 1; i <= num_payments; ++i) {
+        double time = i * payment_period; // Time to payment i
+        double discount_factor = std::exp(-discount_rate * time); // Continuous compounding
+        annuity += discount_factor * payment_period;
+    }
+
+    return annuity;
+}
+
 double SwaptionPricer::blackPrice(
     const Swaption& swaption,
     double forward_rate,
@@ -228,19 +278,24 @@ double SwaptionPricer::blackPrice(
     double strike = swaption.strikeRate();
     double notional = swaption.underlying().notional();
 
-    // Black formula for swaptions
+    // Black-76 formula for swaptions
     double d1 = (std::log(forward_rate / strike) + 0.5 * volatility * volatility * time_to_expiry)
                 / (volatility * std::sqrt(time_to_expiry));
     double d2 = d1 - volatility * std::sqrt(time_to_expiry);
 
-    double price;
+    double intrinsic;
     if (swaption.isPayer()) {
-        price = notional * (forward_rate * normalCDF(d1) - strike * normalCDF(d2));
+        intrinsic = forward_rate * normalCDF(d1) - strike * normalCDF(d2);
     } else {
-        price = notional * (strike * normalCDF(-d2) - forward_rate * normalCDF(-d1));
+        intrinsic = strike * normalCDF(-d2) - forward_rate * normalCDF(-d1);
     }
 
-    // Simplified - should multiply by annuity factor
+    // Calculate annuity factor (present value of basis point)
+    double annuity = calculateAnnuity(swaption.underlying(), forward_rate);
+
+    // Full Black-76 price with annuity
+    double price = notional * annuity * intrinsic;
+
     return price;
 }
 

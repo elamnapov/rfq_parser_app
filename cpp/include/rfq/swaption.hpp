@@ -115,7 +115,7 @@ private:
  */
 class SwaptionPricer {
 public:
-    // Simple Black formula approximation
+    // Black-76 formula with full annuity factor
     static double blackPrice(
         const Swaption& swaption,
         double forward_rate,
@@ -128,6 +128,12 @@ public:
         double market_price,
         double forward_rate,
         double time_to_expiry);
+
+private:
+    // Calculate swap annuity factor (present value of basis point)
+    static double calculateAnnuity(
+        const InterestRateSwap& swap,
+        double discount_rate);
 };
 
 } // namespace rfq
