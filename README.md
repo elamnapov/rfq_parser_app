@@ -456,10 +456,22 @@ if pricing:
 
 **Notes:**
 - **IRS Pricing**: Uses C++ swap engine for net payment calculation with ACT/360 day count conventions
-- **Swaption Pricing**: Uses C++ Black-76 pricer for European swaption valuation
-- Pricing uses simplified models with default market parameters for demonstration
-- For production use, integrate with your market data feeds for accurate forward rates and volatilities
+- **Swaption Pricing**: Uses C++ Black-76 pricer with full annuity factor calculation for European swaption valuation
 - Pricing automatically appears in `parsing_notes` field
+
+**Default Parameters (when not specified in RFQ):**
+- **IRS**:
+  - Floating rate: 4.5% (assumed SOFR)
+  - Payment frequency: Semi-annual (fixed leg), Quarterly (floating leg)
+  - Calculation period: 180 days
+- **Swaption**:
+  - Forward rate: 5%
+  - Volatility: 20%
+  - Time to expiry: 1 year
+  - Payment frequency: Semi-annual
+  - Exercise style: European
+
+**For Production Use:** Integrate with your market data feeds for accurate forward rates, volatilities, and term structures
 
 ### Streamlit App Integration
 

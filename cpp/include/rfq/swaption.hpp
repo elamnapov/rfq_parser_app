@@ -131,9 +131,11 @@ public:
 
 private:
     // Calculate swap annuity factor (present value of basis point)
+    // Payments start at time_to_expiry (when underlying swap begins)
     static double calculateAnnuity(
         const InterestRateSwap& swap,
-        double discount_rate);
+        double discount_rate,
+        double time_to_expiry);
 };
 
 } // namespace rfq

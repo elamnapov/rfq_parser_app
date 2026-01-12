@@ -221,7 +221,8 @@ namespace {
 
 double SwaptionPricer::calculateAnnuity(
     const InterestRateSwap& swap,
-    double discount_rate) {
+    double discount_rate,
+    double time_to_expiry) {
 
     // Get swap tenor in years
     std::string tenor_str = swap.tenor();
@@ -259,9 +260,11 @@ double SwaptionPricer::calculateAnnuity(
     double payment_period = 1.0 / payments_per_year; // Time between payments in years
 
     // Calculate annuity as sum of discounted payment periods
+    // IMPORTANT: Payments start at time_to_expiry (when swap begins)
+    // NOT at time 0 (today)
     double annuity = 0.0;
     for (int i = 1; i <= num_payments; ++i) {
-        double time = i * payment_period; // Time to payment i
+        double time = time_to_expiry + i * payment_period; // Payments start after swaption expiry
         double discount_factor = std::exp(-discount_rate * time); // Continuous compounding
         annuity += discount_factor * payment_period;
     }
@@ -291,7 +294,8 @@ double SwaptionPricer::blackPrice(
     }
 
     // Calculate annuity factor (present value of basis point)
-    double annuity = calculateAnnuity(swaption.underlying(), forward_rate);
+    // Underlying swap starts at time_to_expiry, not today
+    double annuity = calculateAnnuity(swaption.underlying(), forward_rate, time_to_expiry);
 
     // Full Black-76 price with annuity
     double price = notional * annuity * intrinsic;

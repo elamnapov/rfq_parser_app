@@ -245,6 +245,9 @@ def main():
                 pricing_label = "💰 C++ Pricing" if pricing_info.get('product_type') == 'Interest Rate Swap' else "💰 Pricing"
                 st.subheader(pricing_label)
 
+                # Warning about default parameters
+                st.warning("⚠️ **Note:** Pricing uses default market parameters for values not specified in the RFQ (see assumptions below)")
+
                 # Display pricing details in a nice format
                 price_cols = st.columns([2, 1])
 
@@ -271,11 +274,18 @@ def main():
                 with price_cols[1]:
                     # Display pricing parameters for swaptions
                     if pricing_info.get('product_type') == 'Swaption':
-                        st.markdown("**Pricing Inputs:**")
-                        st.markdown(f"• Forward: {pricing_info['forward_rate']}")
-                        st.markdown(f"• Volatility: {pricing_info['volatility']}")
-                        st.info("💡 Using C++ Black-76 pricer with default market parameters")
+                        st.markdown("**Pricing Assumptions:**")
+                        st.markdown("*The following parameters were not specified in the RFQ and use default values:*")
+                        st.markdown(f"• **Forward Rate:** {pricing_info['forward_rate']} *(default)*")
+                        st.markdown(f"• **Volatility:** {pricing_info['volatility']} *(default)*")
+                        st.markdown(f"• **Time to Expiry:** 1 year *(default)*")
+                        st.markdown(f"• **Payment Frequency:** Semi-annual *(default)*")
+                        st.info("💡 Using C++ Black-76 pricer with full annuity factor calculation")
                     elif pricing_info.get('product_type') == 'Interest Rate Swap':
+                        st.markdown("**Pricing Assumptions:**")
+                        st.markdown("*The following parameters were not specified in the RFQ:*")
+                        st.markdown(f"• **Floating Rate:** 4.5% *(assumed SOFR)*")
+                        st.markdown(f"• **Payment Frequency:** Semi-annual fixed, Quarterly floating *(default)*")
                         st.info("💡 Net payment calculated for a 180-day period using C++ swap engine")
 
             # Parsing notes
