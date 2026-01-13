@@ -104,6 +104,29 @@ auto xccy = InterestRateSwap::createCrossCurrencySwap(
     std::move(usd_leg), std::move(eur_leg), "10Y", "2024-03-01", 1.11);
 ```
 
+**Architecture Note - 2-Leg Design:**
+
+The current architecture supports exactly **2 legs** (pay and receive):
+```cpp
+std::unique_ptr<SwapLeg> pay_leg_;      // Fixed: 2-leg architecture
+std::unique_ptr<SwapLeg> receive_leg_;
+```
+
+**Multi-leg swaps (>2 legs) are NOT currently supported.** However, the modular design makes extension relatively straightforward:
+
+- ✅ **SwapLeg is self-contained** - independent construction and validation
+- ✅ **No tight coupling** - SwapLeg doesn't depend on InterestRateSwap
+- ✅ **Clean composition** - Swap is composed of independent leg objects
+- ✅ **Uniform interface** - All legs expose the same interface
+
+**To extend to N legs**, the main change would be:
+```cpp
+// Replace fixed 2-leg members with:
+std::vector<std::unique_ptr<SwapLeg>> legs_;
+```
+
+This would require API changes but minimal architectural refactoring due to good separation of concerns.
+
 **Lambda for Payment Calculation:**
 ```cpp
 double InterestRateSwap::calculateNetPayment(double period_days) const {
@@ -119,6 +142,11 @@ double InterestRateSwap::calculateNetPayment(double period_days) const {
 ### 3. Swaption (`swaption.hpp/cpp`)
 Option on an interest rate swap with **European, American, and Bermudan** styles.
 
+**Exercise Styles Supported:**
+- ✅ **European** - Exercise only at expiry date
+- ✅ **American** - Exercise any time up to expiry
+- ✅ **Bermudan** - Exercise on specific dates (multiple exercise opportunities)
+
 **Bermudan Swaption Example:**
 ```cpp
 std::vector<std::string> exercise_dates = {
@@ -130,12 +158,14 @@ auto bermudan = Swaption::createBermudan(
     std::move(swap),
     "2028-12-31",
     0.045,
-    exercise_dates
+    exercise_dates  // Multiple exercise dates fully supported
 );
 
 // Check if can exercise on specific date
 bool can = bermudan->canExerciseOn("2026-01-01");  // true
 ```
+
+**Important:** Bermudan swaptions with multiple exercise dates are fully supported. However, the underlying swap must be a standard 2-leg swap (see InterestRateSwap section above).
 
 **Simple Black Pricing:**
 ```cpp
