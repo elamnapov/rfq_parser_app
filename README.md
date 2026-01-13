@@ -156,6 +156,135 @@ Try **"Swaption (C++ Pricing)"** to see Black-76 option pricing.
 - **Visual Demo**: Interactive Streamlit interface (`app.py`)
 - **Comprehensive Tests**: 147 Python tests + 19 C++ tests
 
+## 🧠 LLM Architecture & Strategy
+
+### 1. When to Use LLM vs Rules-Based Parsing
+
+#### **Use LLM For:**
+✅ **Ambiguous/conversational input** - "Hi, looking to buy 100 MIO EURUSD 6 months outright, value date IMM Dec"
+✅ **Context-dependent interpretation** - "Same as yesterday but 10MM instead" or "Switch the direction"
+✅ **Novel phrasing** - "Need protection on rates for $50M, 5 years" (interpreting intent)
+✅ **Client-specific abbreviations** - Custom terminology that varies by institution
+
+#### **Do NOT Use LLM For:**
+❌ **Well-structured RFQs** - "Buy 10MM EUR/USD spot" → regex is 10-100x faster, deterministic, and cheaper
+❌ **Validation logic** - "Is 10MM valid?" → rules-based (C++ validator handles this)
+❌ **Calculations** - Pricing, payments, date math → deterministic algorithms (C++ components)
+
+#### **Recommended Architecture: Hybrid with Intelligent Routing**
+```python
+def parse(self, text):
+    # Step 1: Try regex first (fast, cheap)
+    regex_result = self._parse_with_regex(text)
+
+    # Step 2: Route based on confidence
+    if regex_result.confidence_score > 0.8:  # 80% of cases
+        return regex_result  # Avoid LLM cost
+
+    # Step 3: LLM for ambiguous cases (20% of cases)
+    return self._parse_with_llm(text, regex_hint=regex_result)
+```
+
+**Why This Works:**
+- 80% of RFQs are formulaic → regex handles them (low latency, low cost)
+- 20% are complex/conversational → LLM handles them (higher accuracy)
+- Regex provides hints to LLM (hybrid approach, not either/or)
+
+### 2. RAG (Retrieval-Augmented Generation)
+
+#### **Where RAG Helps:**
+
+**A. Client-Specific Context**
+```python
+# Retrieve client conventions from vector DB
+context = """
+Client XYZ Corp:
+- "The usual" = 10MM EUR/USD 3M forward
+- "Double it" = 2x previous notional
+- Always prices in London (UTC timezone)
+"""
+```
+**Benefit:** Interprets client-specific jargon without retraining model
+
+**B. Historical RFQ Patterns**
+```python
+# Find similar past RFQs
+similar_rfqs = vector_db.search_similar(text, k=2)
+# Use as few-shot examples in prompt
+```
+**Benefit:** Improves consistency - new RFQs parsed like similar historical ones
+
+**C. Product Documentation**
+```python
+# For complex instruments
+if "bermudan swaption" in text:
+    context = retrieve("Bermudan swaption conventions")
+```
+**Benefit:** Handles exotic products the base model may not know well
+
+#### **Cons of RAG:**
+- ❌ **Infrastructure overhead** - Need vector DB (Pinecone, Weaviate, ChromaDB)
+- ❌ **Embedding costs** - Converting RFQs to vectors costs money/time
+- ❌ **Relevance issues** - Retrieved context might not be relevant (noise)
+- ❌ **Latency penalty** - Vector search adds 50-200ms per request
+- ❌ **Overkill for simple cases** - Standard instruments (EUR/USD spot) don't need external knowledge
+
+#### **Recommendation:**
+Use RAG **only if**:
+- You have multiple clients with different conventions
+- You handle exotic/bespoke instruments requiring definitions
+- Volume justifies infrastructure investment (>1000 RFQs/day)
+
+**Start without RAG**, add it later when you see patterns the LLM struggles with.
+
+### 3. Fine-Tuning
+
+#### **When Fine-Tuning Helps:**
+
+**A. Consistent Output Format**
+- Base models are verbose, sometimes output extra text
+- Fine-tuned models learn to output **only** valid JSON schema
+- Reduces prompt size (no need to include examples/schema every time)
+
+**B. Domain-Specific Terminology**
+- Your firm's specific abbreviations and slang
+- "Dragon trade", "Standard package", internal codes
+- Base models won't know these without fine-tuning
+
+**C. Cost Optimization (High Volume)**
+```
+Base model:
+- Prompt: 800 tokens (schema + examples + rules)
+- Request: 1000 tokens total
+- Cost: $0.001/request
+
+Fine-tuned:
+- Prompt: 50 tokens (no examples needed)
+- Request: 250 tokens total
+- Cost: $0.00025/request
+
+At 10,000 requests/day: Save $7.50/day = $2,737/year
+Fine-tuning cost: ~$100 one-time
+ROI: Pays back in 14 days
+```
+
+#### **Cons of Fine-Tuning:**
+- ❌ **Need labeled data** - Requires 1000+ high-quality examples (Input RFQ → Output JSON)
+- ❌ **Data collection effort** - Must manually label or extract from production
+- ❌ **Training cost** - $50-500 depending on model size and epochs
+- ❌ **Model drift** - RFQ patterns change, need to retrain periodically (quarterly/annually)
+- ❌ **Vendor lock-in** - Fine-tuned model tied to specific provider (Mistral, OpenAI)
+- ❌ **Versioning complexity** - Managing model versions, A/B testing, rollbacks
+- ❌ **Only worth it at scale** - Below 5K requests/day, savings don't justify effort
+
+#### **Recommendation:**
+Fine-tune **only if**:
+- Volume >5,000 RFQs/day (ROI positive)
+- You have 1000+ labeled examples
+- RFQ patterns are stable (not changing weekly)
+
+**Start with base model + good prompts**, collect production data, fine-tune after 3-6 months when you have enough examples.
+
 ## 📖 Usage
 
 ### Basic Parsing (No API Key Needed)
