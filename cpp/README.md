@@ -263,6 +263,33 @@ result = parser.parse("Buy 10MM EURUSD 3M forward")
 - **std::variant**: Compile-time safe fixed/floating rate handling
 - **std::optional**: Explicit nullable types (no null pointers)
 
+### STL Container Usage
+This codebase uses 100% STL containers with no third-party container libraries. Each container was chosen for specific performance and semantic properties:
+
+| STL Container | Where Used | Why This Choice |
+|---------------|------------|-----------------|
+| `std::vector<T>` | Validation results, exercise dates, error lists | Dynamic arrays with cache-friendly contiguous memory. O(1) indexed access, efficient iteration. Best for sequential access patterns. |
+| `std::map<K,V>` | Validation rules, parsed data | Ordered key-value lookup with guaranteed iteration order. O(log n) lookup. Used when ordering matters or range queries needed. |
+| `std::queue<T>` | ThreadSafeQueue implementation | FIFO semantics for RFQ processing pipeline. Provides clear queue interface (push/pop) with adapter pattern. |
+| `std::optional<T>` | Nullable fields (fx_rate, spread, suggestion) | Type-safe nullability without pointers. Makes optionality explicit in type system. Better than sentinel values or raw pointers. |
+| `std::function<T>` | Validation rule callbacks | Type-erased callable objects (lambdas, functors, function pointers). Enables Strategy pattern for pluggable validation rules. |
+| `std::string` | Text fields (tenor, currency, dates) | Standard string handling with automatic memory management. Small string optimization in most implementations. |
+| `std::shared_ptr<T>` | InterestRateSwap (shared by swaptions) | Shared ownership - multiple swaptions reference the same underlying swap. Thread-safe reference counting. |
+| `std::unique_ptr<T>` | SwapLeg (exclusive ownership) | Exclusive ownership with move-only semantics. Zero overhead compared to raw pointers. Enforces single owner invariant. |
+
+**Design Principles:**
+- **Prefer STL**: Standard containers have decades of optimization and are well-understood by all C++ developers
+- **Right tool for the job**: Each container chosen for its specific performance and semantic properties
+- **Modern C++ idioms**: Use `std::optional` instead of null pointers, `std::variant` for type-safe unions
+- **No premature optimization**: `std::vector` is the default choice; only use specialized containers when profiling shows a need
+
+**Containers NOT used (and why):**
+- `std::list` - Poor cache locality, only beneficial if frequent mid-sequence insertions/deletions
+- `std::deque` - Not needed; `std::vector` sufficient for our append-heavy workloads
+- `std::unordered_map` - Ordered iteration useful for validation rules; O(log n) acceptable
+- `std::set` - No use case requiring unique ordered sets in this domain
+- `std::array` - Fixed-size arrays not needed; sizes determined at runtime
+
 ### Performance
 - **Move Semantics**: Efficient resource transfer, no unnecessary copies
 - **Lock-Free**: `std::atomic` for queue size queries
